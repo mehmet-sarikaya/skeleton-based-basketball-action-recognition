@@ -1,65 +1,87 @@
 import cv2
 from ultralytics import YOLO
 import torch
+import uuid
+import os
+import sys
 
-# Load the YOLO11 model
-model = YOLO("yolov/yolo11n-pose.pt")
+# --- 1. Load Model with Check ---
+model_path = "yolov/yolo11n-pose.pt"
+if not os.path.exists(model_path):
+    raise FileNotFoundError(f"FATAL: Model file not found at {model_path}")
 
-# Open the video file
-video_path = "Basketball_51_dataset/ft1/ft1_v108_004003_x264.mp4"
-video_path = "1080p_Mehmet_demo_video.mp4"
+try:
+    model = YOLO(model_path)
+    print("✓ YOLO Model loaded successfully.")
+except Exception as e:
+    raise RuntimeError(f"FATAL: Could not initialize YOLO model: {e}")
+
+# --- 2. Open Video with Check ---
+video_path = "../videos/dribbling/Dribbling 1.mp4"
+if not os.path.exists(video_path):
+    raise FileNotFoundError(f"FATAL: Video file not found at {video_path}")
+
 cap = cv2.VideoCapture(video_path)
 
-# --- 1. Get video properties and initialize VideoWriter ---
-# Get video frame dimensions
+if not cap.isOpened():
+    raise IOError(f"FATAL: OpenCV could not open video file {video_path}. Check codecs or file integrity.")
+
+print(f"✓ Video opened: {video_path}")
+
+# --- 3. Initialize VideoWriter with Logic Checks ---
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-# Get frames per second
 fps = cap.get(cv2.CAP_PROP_FPS)
 
-# Define the codec and create VideoWriter object
-# 'mp4v' is a common and compatible codec for MP4 files.
-# Choose an appropriate output path and filename
-output_path = "output_video_with_annotations_mehmet.mp4"
-fourcc = cv2.VideoWriter_fourcc(*'mp4v') # Codec
+# Safety check for zero-property videos (common with corrupted headers)
+if frame_width == 0 or frame_height == 0:
+    raise ValueError("FATAL: Video frame dimensions are 0. The file may be corrupted.")
+
+output_path = f"annotated_video_{str(uuid.uuid4())[:5]}.mp4"
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
-print(f"Saving video to: {output_path}")
+if not out.isOpened():
+    print("ERROR: VideoWriter failed to open. Check write permissions or codec support.")
+    cap.release()
+    sys.exit(1)
 
-# --- 2. Loop through the video frames ---
-while cap.isOpened():
-    # Read a frame from the video
-    success, frame = cap.read()
+print(f"✓ Saving annotated video to: {output_path}")
 
-    if success:
-        # Run YOLO11 tracking on the frame, persisting tracks between frames
-        # The 'verbose=False' argument suppresses the output for each frame, making the terminal cleaner.
+# --- 4. Processing Loop ---
+try:
+    while cap.isOpened():
+        success, frame = cap.read()
+
+        if not success:
+            print("End of video stream reached.")
+            break
+
+        # Run tracking
         results = model.track(frame, persist=True, verbose=False)
 
-        # Visualize the results on the frame
-        annotated_frame = results[0].plot()
+        # Safety: check if results were actually returned
+        if results and len(results) > 0:
+            annotated_frame = results[0].plot()
+            out.write(annotated_frame)
 
-        # --- Write the annotated frame to the output video file ---
-        out.write(annotated_frame)
+            cv2.imshow("YOLO11 Tracking", annotated_frame)
+        else:
+            # If tracking fails for a single frame, just write the original
+            out.write(frame)
 
-
-        # Display the annotated frame (optional)
-        cv2.imshow("YOLO11 Tracking", annotated_frame)
-
-        # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
+            print("User interrupted processing.")
             break
-    else:
-        # Break the loop if the end of the video is reached
-        break
 
-# --- 3. Release resources ---
-# Release the video capture object
-cap.release()
-# Release the video writer object
-out.release()
-# Close all OpenCV windows
-cv2.destroyAllWindows()
+except Exception as e:
+    print(f"AN ERROR OCCURRED DURING PROCESSING: {e}")
 
-print("Video processing and saving complete.")
+finally:
+    # --- 5. Clean Resource Release ---
+    cap.release()
+    out.release()
+    cv2.destroyAllWindows()
+    print("Resources released.")
+
+print("Process finished.")

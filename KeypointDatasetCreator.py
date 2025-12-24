@@ -6,14 +6,15 @@ import numpy as np
 from pathlib import Path
 
 
-class DatasetCreator:
+class KeypointDatasetCreator:
     def __init__(self):
         self.keypoints_buffer = []
         self.model = YOLO("yolov/yolo11n-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.video_processor = VideoProcessor()
 
-    def save_single_person_pose_array_no_face_single_video(self, video_path: str, target_fps=10):
-        video_processor = VideoProcessor()
-        video_processor.ProcessVideoPerFrame(video_path, self.extract_keypoint_coordinates, target_fps=target_fps)
+    def extract_keypoints_one_person_single_video(self, video_path: str, target_fps=10):
+        self.keypoints_buffer = []
+        self.video_processor.process_video_per_frame(video_path, self.extract_keypoint_coordinates, target_fps=target_fps)
 
     def extract_keypoint_coordinates(self, frame):
         # extract Keypoint Coordinates (returns just one result since one picture)
@@ -32,14 +33,30 @@ class DatasetCreator:
 
     def create_keypoints_dataset(self, path):
         print(f"Processing {path}")
-        self.save_single_person_pose_array_no_face_single_video(path)
 
+        for sub in os.listdir(path):
+            sub_dir_path = os.path.join(path,sub)
+
+            # don't process single file here
+            if not os.path.isdir(sub_dir_path):
+                continue
+
+            for filename in os.listdir(sub_dir_path):
+                print(f"---------------- Processing {filename} ----------------")
+                file_path = os.path.join(sub_dir_path, filename)
+
+                self.extract_keypoints_one_person_single_video(file_path)
+                self.save_keypoint_single_video(file_path)
+
+    def save_keypoint_single_video(self, path):
         filename = Path(path).stem
         folder_path = Path(path).parent
         out_file_name = filename + "_keypoints.npz"
 
         np.savez_compressed(os.path.join(folder_path, out_file_name), data=self.keypoints_buffer)
+        self.keypoints_buffer = []
 
 
-creator = DatasetCreator()
-creator.create_keypoints_dataset("videos/1080p_Mehmet_demo_video.mp4")
+if __name__ == "__main__":
+    creator = KeypointDatasetCreator()
+    creator.create_keypoints_dataset("videos/")

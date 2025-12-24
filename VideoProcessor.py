@@ -7,7 +7,7 @@ class VideoProcessor:
     def __init__(self):
         pass
 
-    def ProcessVideoPerFrame(self, video_path: str, frame_callback, target_fps=10, show_frames=False):
+    def process_video_per_frame(self, video_path: str, frame_callback, target_fps=10, show_frames=False):
         if not os.path.isfile(video_path):
             raise FileNotFoundError(f"Video nicht gefunden: {video_path}")
 
@@ -45,7 +45,7 @@ class VideoProcessor:
                 frame_callback(frame)
 
             else:
-                print("Couldn't read frame")
+                print("End of Video")
                 # release video capture
                 cap.release()
                 cv.destroyAllWindows()

@@ -5,7 +5,7 @@ import torch
 # Load the YOLO11 model
 model = YOLO("yolov/yolo11n-pose.pt")
 
-img = cv2.imread("Images/Wurf/wurf-7.jpg_1440346361.jpg")
+img = cv2.imread("../Images/Wurf/kobe.png")
 
 results = model(img)
 
