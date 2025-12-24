@@ -3,7 +3,7 @@ from ModelCreator import ModelCreator
 from keras.regularizers import l2
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
-from sklearn.model_selection import LeaveOneGroupOut, GroupKFold
+from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold
 from keras.callbacks import EarlyStopping
 import numpy as np
 
@@ -31,7 +31,7 @@ class ModelTrainer:
         y_train, y_test = self.y[train_idx], self.y[test_idx]
 
         # create new model each time
-        model = self.model_creator.create_conv2d_lstm_model()
+        model = self.model_creator.create_small_conv2d_lstm_model()
 
         hp_learning_rate = 0.0001  # Hyperparameter for learning rate
 
@@ -61,8 +61,20 @@ class ModelTrainer:
             self.train_base(train_idx, test_idx)
 
     def train_model_gkf(self):
-        group_kfold = GroupKFold(n_splits=2, shuffle=True)
+        group_kfold = GroupKFold(n_splits=2, shuffle=True, random_state=42)
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
+            self.train_base(train_idx, test_idx)
+
+    def train_model_sgkf(self):
+        group_kfold = StratifiedGroupKFold(n_splits=2, shuffle=True, random_state=42)
+        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
+            self.train_base(train_idx, test_idx)
+
+    def train_model_classic_kfold(self, n_splits=2):
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+        for i, (train_idx, test_idx) in enumerate(kf.split(self.x, self.y)):
+            print(f"\n--- Klassischer Fold {i + 1} (Subjekte gemischt) ---")
             self.train_base(train_idx, test_idx)
 
     def evaluate_model(self, model, x, y_true):

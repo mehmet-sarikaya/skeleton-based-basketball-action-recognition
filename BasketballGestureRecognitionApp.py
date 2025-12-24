@@ -18,7 +18,7 @@ class BasketballGestureRecognitionApp:
         }
 
         self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic,fps=self.fps)
-        self.model_creator = ModelCreator(duration_sec=3, fps=self.fps, num_classes=self.num_classes)
+        self.model_creator = ModelCreator(win_len_sec=self.win_len_sec, fps=self.fps, num_classes=self.num_classes)
         self.model_trainer = None
 
     def create_dataset_from_videos(self):
@@ -33,9 +33,10 @@ class BasketballGestureRecognitionApp:
             keypt_processor=self.keypt_processor,
             label_id_dic = self.label_id_dic
         )
-        self.model_trainer.train_model_gkf()
+        self.model_trainer.train_model_sgkf()
+        # self.model_trainer.train_model_classic_kfold()
 
 
 if __name__ == "__main__":
-    app = BasketballGestureRecognitionApp(fps=10, win_len_sec=3, num_classes=3, path_to_videos="videos")
+    app = BasketballGestureRecognitionApp(fps=10, win_len_sec=2, num_classes=3, path_to_videos="videos")
     app.load_dataset_and_train()

@@ -4,12 +4,12 @@ from keras.layers import Dense, Dropout, BatchNormalization, Conv1D, MaxPooling1
 
 
 class ModelCreator:
-    def __init__(self, duration_sec=3, fps=10, num_classes=3):
+    def __init__(self, win_len_sec=3, fps=10, num_classes=3):
         self.model = None
-        self.duration_sec = duration_sec
+        self.duration_sec = win_len_sec
         self.fps = fps
         # 1.number of frames per window, 2. Keypoints per frame, 3.X/Y Coordinates, 4.Only 1 Channel (NO RGB)
-        self.input_shape = (duration_sec*fps, 17, 2, 1)
+        self.input_shape = (win_len_sec * fps, 17, 2, 1)
         self.num_classes = num_classes
 
     def create_conv2d_lstm_model(self):
@@ -28,7 +28,7 @@ class ModelCreator:
             # 2. Sequence Learning (Temporal)
             # The Flattened output of the CNNs goes into the LSTM
             layers.LSTM(64, return_sequences=True),
-            layers.Dropout(0.5),
+            layers.Dropout(0.1),
             layers.LSTM(32),
 
             # 3. Classification
@@ -36,6 +36,23 @@ class ModelCreator:
             layers.Dense(self.num_classes, activation='softmax')
         ])
 
+        return self.model
+
+    def create_small_conv2d_lstm_model(self):
+        self.model = models.Sequential([
+            layers.Input(shape=self.input_shape),
+
+            layers.TimeDistributed(layers.Conv2D(16, (3, 2), padding='same', activation='relu')),
+            layers.TimeDistributed(layers.MaxPooling2D(pool_size=(2, 1))),
+            layers.TimeDistributed(layers.Flatten()),
+
+            layers.LSTM(32),
+            layers.Dropout(0.3),
+
+            # 3. Classification
+            layers.Dense(16, activation='relu'),
+            layers.Dense(self.num_classes, activation='softmax')
+        ])
         return self.model
 
     def create_cnn_lstm_model(self):
