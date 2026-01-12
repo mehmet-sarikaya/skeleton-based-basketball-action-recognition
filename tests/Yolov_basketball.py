@@ -17,7 +17,7 @@ except Exception as e:
     raise RuntimeError(f"FATAL: Could not initialize YOLO model: {e}")
 
 # --- 2. Open Video with Check ---
-video_path = "../videos/dribbling/Dribbling 1.mp4"
+video_path = "../videos/passing/Passing 2.mp4"
 if not os.path.exists(video_path):
     raise FileNotFoundError(f"FATAL: Video file not found at {video_path}")
 
@@ -64,6 +64,9 @@ try:
         if results and len(results) > 0:
             annotated_frame = results[0].plot()
             out.write(annotated_frame)
+
+            print("Anzahl der Leute:",len(results))
+            print(results[0].keypoints.xyn)
 
             cv2.imshow("YOLO11 Tracking", annotated_frame)
         else:

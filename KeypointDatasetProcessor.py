@@ -9,6 +9,7 @@ class KeypointDatasetProcessor:
         # chosen dynamically
         self.current_label_keypoints_per_video = None
         self.win_len_sec = None
+        self.stride_len_sec = None
 
         self.label_id_dic = label_id_dic
 
@@ -57,16 +58,20 @@ class KeypointDatasetProcessor:
 
             self.current_label_keypoints_per_video.append(file_keypoints)
 
-    def prepare_data_for_training(self, win_len_sec=3):
+    def prepare_data_for_training(self, win_len_sec=3, stride_len_sec=1):
         # definitions for training
         self.win_len_sec = win_len_sec
-        win_len = win_len_sec * self.fps
+        win_len = int(win_len_sec * self.fps)
+
+        self.stride_len_sec = stride_len_sec
+        stride_len = int(stride_len_sec * self.fps)
+
         global_subject_counter = 0
 
         for gesture_str, data_list in self.data_dic.items():
             for keypoint_data in data_list:
                 data_len = len(keypoint_data)
-                for start_pos_window in range(0, data_len - win_len + 1, win_len):
+                for start_pos_window in range(0, data_len - win_len + 1, stride_len):
                     end_pos_window = start_pos_window + win_len
 
                     # slicing np array and adding to x

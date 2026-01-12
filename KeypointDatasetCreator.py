@@ -7,18 +7,20 @@ from pathlib import Path
 
 
 class KeypointDatasetCreator:
-    def __init__(self):
+    def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo11n-pose.pt")  # Load the YOLO11 Pose Detection model
-        self.video_processor = VideoProcessor()
+        self.model = YOLO("yolov/yolo11l-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.video_processor = VideoProcessor(target_fps=target_fps)
+        self.target_fps = target_fps
+        self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
 
-    def extract_keypoints_one_person_single_video(self, video_path: str, target_fps=10):
+    def extract_keypoints_one_person_single_video(self, video_path: str):
         self.keypoints_buffer = []
-        self.video_processor.process_video_per_frame(video_path, self.extract_keypoint_coordinates, target_fps=target_fps)
+        self.video_processor.process_video_per_frame_at_constant_fps(video_path, frame_callback=self.extract_keypoint_coordinates)
 
     def extract_keypoint_coordinates(self, frame):
         # extract Keypoint Coordinates (returns just one result since one picture)
-        results = self.model(frame, verbose=False)
+        results = self.model.track(frame, persist=True, verbose=False)
         result = results[0]
 
         if result is None or len(result.keypoints.xyn) == 0:
@@ -27,7 +29,8 @@ class KeypointDatasetCreator:
         xyn = result.keypoints.xyn  # normalized keypoints of all persons
 
         # if multiple persons are there extract just from single person
-        single_person_coordinates = xyn[0].cpu().numpy()
+        # and without head joints
+        single_person_coordinates = xyn[0][5:].cpu().numpy()
 
         self.keypoints_buffer.append(single_person_coordinates)
 
@@ -42,6 +45,11 @@ class KeypointDatasetCreator:
                 continue
 
             for filename in os.listdir(sub_dir_path):
+                # process only videos
+                print(Path(filename).suffix)
+                if not Path(filename).suffix in self.allowed_video_formats:
+                    continue
+
                 print(f"---------------- Processing {filename} ----------------")
                 file_path = os.path.join(sub_dir_path, filename)
 
