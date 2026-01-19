@@ -1,7 +1,7 @@
 import cv2 as cv
 import math
 import os
-
+import time
 
 class VideoProcessor:
     def __init__(self, target_fps):
@@ -97,3 +97,71 @@ class VideoProcessor:
         cap.release()
         cv.destroyAllWindows()
         print("End of Video")
+
+    def process_camera_per_frame_at_constant_fps(
+            self,
+            frame_callback,
+            show_frames=False
+    ):
+        # available_ports, working_ports = self.list_ports()
+        # camera_id = working_ports[0]
+        camera_id = 0
+        cap = cv.VideoCapture(camera_id)
+
+        if not cap.isOpened():
+            raise RuntimeError(f"Cannot open camera {camera_id}")
+
+        print(f"Camera {camera_id} opened. Target FPS: {self.target_fps}")
+
+        target_interval = 1.0 / self.target_fps
+        next_process_time = time.time()
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            now = time.time()
+
+            if now >= next_process_time:
+                if show_frames:
+                    cv.imshow("Camera", frame)
+                    if cv.waitKey(1) & 0xFF == ord('q'):
+                        break
+
+                frame_callback(frame)
+                next_process_time += target_interval
+
+            # Optional: prevent busy looping
+            time.sleep(0.001)
+
+        cap.release()
+        cv.destroyAllWindows()
+        print("Camera stopped")
+
+    def list_ports(self):
+        """
+        Test the ports and returns a tuple with the available ports
+        and the ones that are working.
+        """
+        is_working = True
+        dev_port = 0
+        working_ports = []
+        available_ports = []
+        while is_working:
+            camera = cv.VideoCapture(dev_port)
+            if not camera.isOpened():
+                is_working = False
+                print("Port %s is not working." % dev_port)
+            else:
+                is_reading, img = camera.read()
+                w = camera.get(3)
+                h = camera.get(4)
+                if is_reading:
+                    print("Port %s is working and reads images (%s x %s)" % (dev_port, h, w))
+                    working_ports.append(dev_port)
+                else:
+                    print("Port %s for camera ( %s x %s) is present but does not reads." % (dev_port, h, w))
+                    available_ports.append(dev_port)
+            dev_port += 1
+        return available_ports, working_ports

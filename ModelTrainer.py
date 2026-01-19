@@ -1,11 +1,10 @@
-import tensorflow as tf
 from ModelCreator import ModelCreator
-from keras.regularizers import l2
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
 from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold, train_test_split
 from keras.callbacks import EarlyStopping
 import numpy as np
+import uuid
 
 #evaluation
 from sklearn import metrics
@@ -20,18 +19,21 @@ class ModelTrainer:
         self.x = keypt_processor.x
         self.y = keypt_processor.y
         self.subjects = keypt_processor.subjects
+        self.is_original_data = keypt_processor.is_original_data
 
         self.label_id_dic = label_id_dic
 
     def train_base(self, train_idx, test_idx):
-        # Split the data
-        x_train, x_test = self.x[train_idx], self.x[test_idx]
-        y_train, y_test = self.y[train_idx], self.y[test_idx]
+        x_train = self.x[train_idx]
+        y_train = self.y[train_idx]
+
+        x_test = self.x[test_idx][self.is_original_data[test_idx]]
+        y_test = self.y[test_idx][self.is_original_data[test_idx]]
 
         # create new model each time
         model = self.model_creator.create_model()
 
-        hp_learning_rate = 0.0001  # Hyperparameter for learning rate
+        hp_learning_rate = 0.00005  # Hyperparameter for learning rate
 
         optimizer = Adam(learning_rate=hp_learning_rate)
 
@@ -52,6 +54,11 @@ class ModelTrainer:
         model.fit([x_train], y_train, epochs=100, batch_size=16, validation_split=0.2, verbose=1, callbacks=[es])
 
         self.evaluate_model(model, x_test, y_test)
+
+        model_id = str(uuid.uuid4())[:8]
+        model_name = f"bball_gesture_pose_{model_id}.keras"
+        model.save(f"models/{model_name}")
+        print(f"saved model at {model_name}")
 
     def train_model_loso(self):
         logo = LeaveOneGroupOut()

@@ -3,6 +3,7 @@ from ModelCreator import ModelCreator
 from ModelTrainer import ModelTrainer
 from KeypointDatasetCreator import KeypointDatasetCreator
 from KeypointDatasetCreator import KeypointDatasetCreator
+from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
     def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos):
@@ -21,7 +22,7 @@ class BasketballGestureRecognitionApp:
             "throw": 2
         }
 
-        self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic,fps=self.fps)
+        self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic, fps=self.fps)
         self.model_name = model_name
         self.model_creator = ModelCreator(
             model_name=self.model_name,
@@ -29,6 +30,9 @@ class BasketballGestureRecognitionApp:
             fps=self.fps,
             num_classes=self.num_classes)
         self.model_trainer = None
+        self.model_tester = ModelTester(
+            app=self
+        )
 
     def create_dataset_from_videos(self):
         self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos)
@@ -50,15 +54,19 @@ class BasketballGestureRecognitionApp:
 
         # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
 
+    def test_model(self):
+        self.model_tester.test_model_on_video("videos/1080p_Mehmet_demo_video.mov")
+
 
 if __name__ == "__main__":
     app = BasketballGestureRecognitionApp(
-        model_name="small_cnn_lstm",
-        n_splits=4,
+        model_name="conv2d",
+        n_splits=6,
         fps=24,
-        win_len_sec=4,
-        stride_len_sec=2,
+        win_len_sec=3,
+        stride_len_sec=1.5,
         num_classes=3,
         path_to_videos="videos")
     # app.create_dataset_from_videos()
-    app.load_dataset_and_train()
+    # app.load_dataset_and_train()
+    app.test_model()

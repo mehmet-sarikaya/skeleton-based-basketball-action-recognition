@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import numpy as np
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from Augmenter import Augmenter
 
 
 class KeypointDatasetProcessor:
@@ -22,9 +23,12 @@ class KeypointDatasetProcessor:
         self.x = []
         self.y = []
         self.subjects = []
+        self.is_original_data = []
 
-        self.allowed_datatypes = [".npy",".npz"]
+        self.allowed_datatypes = [".npy", ".npz"]
         self.fps = fps
+
+        self.augmenter = Augmenter(self.fps)
 
     def load_all_keypoints_data_in_dir(self, path):
         for subdir in os.listdir(path):
@@ -76,17 +80,24 @@ class KeypointDatasetProcessor:
 
                     # slicing np array and adding to x
                     new_sliding_window = keypoint_data[start_pos_window:end_pos_window]
-                    self.x.append(new_sliding_window)
+                    new_sliding_window = np.array(new_sliding_window)
 
-                    # add label to y
                     gesture_id = self.label_id_dic[gesture_str]
+
+                    self.x.append(new_sliding_window)
                     self.y.append(gesture_id)
-
-                    # add subjectIDs
                     self.subjects.append(global_subject_counter)
-                global_subject_counter += 1
+                    self.is_original_data.append(True)
 
-        self.x = np.array(self.x)
+                    # augmentation
+                    augmented_windows = self.augmenter.augment_window(new_sliding_window)
+                    self.x.extend(augmented_windows)
+                    for i in range(len(augmented_windows)):
+                        self.y.append(gesture_id)
+                        self.subjects.append(global_subject_counter)
+                        self.is_original_data.append(False)
+
+                global_subject_counter += 1
 
         self.x = pad_sequences(
             self.x,
@@ -99,6 +110,7 @@ class KeypointDatasetProcessor:
         self.x = np.expand_dims(self.x, axis=-1)
         self.y = np.array(self.y)
         self.subjects = np.array(self.subjects)
+        self.is_original_data = np.array(self.is_original_data)
 
     def print_data_after_preparation(self):
         print("\n" + "=" * 30)

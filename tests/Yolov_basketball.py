@@ -6,9 +6,7 @@ import os
 import sys
 
 # --- 1. Load Model with Check ---
-model_path = "yolov/yolo11n-pose.pt"
-if not os.path.exists(model_path):
-    raise FileNotFoundError(f"FATAL: Model file not found at {model_path}")
+model_path = "yolov/yolo26n-pose.pt"
 
 try:
     model = YOLO(model_path)
@@ -17,7 +15,7 @@ except Exception as e:
     raise RuntimeError(f"FATAL: Could not initialize YOLO model: {e}")
 
 # --- 2. Open Video with Check ---
-video_path = "../videos/passing/Passing 2.mp4"
+video_path = "../videos/dribbling/Dribbling 1.mp4"
 if not os.path.exists(video_path):
     raise FileNotFoundError(f"FATAL: Video file not found at {video_path}")
 
@@ -58,7 +56,12 @@ try:
             break
 
         # Run tracking
-        results = model.track(frame, persist=True, verbose=False)
+        results = model.track(
+            source="https://www.youtube.com/watch?v=qXU5S0ywN40",     # oder 0 für Webcam
+            persist=True,           # IDs über Frames behalten
+            tracker="botsort.yaml", # oder "bytetrack.yaml"
+            show=True
+        )
 
         # Safety: check if results were actually returned
         if results and len(results) > 0:
