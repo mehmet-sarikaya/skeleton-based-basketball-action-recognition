@@ -1,18 +1,18 @@
 import os.path
-
 from VideoProcessor import VideoProcessor
 from ultralytics import YOLO
 import numpy as np
 from pathlib import Path
 
-
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo11l-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
+
+        self.annotation_dict = None
 
     def extract_keypoints_one_person_single_video(self, video_path: str):
         self.keypoints_buffer = []
@@ -59,12 +59,8 @@ class KeypointDatasetCreator:
     def save_keypoint_single_video(self, path):
         filename = Path(path).stem
         folder_path = Path(path).parent
-        out_file_name = filename + "_keypoints.npz"
+        out_file_name = filename + ".npz"
 
         np.savez_compressed(os.path.join(folder_path, out_file_name), data=self.keypoints_buffer)
+
         self.keypoints_buffer = []
-
-
-if __name__ == "__main__":
-    creator = KeypointDatasetCreator()
-    creator.create_keypoints_dataset("videos/")

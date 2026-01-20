@@ -1,3 +1,5 @@
+from sklearn.utils import class_weight
+
 from ModelCreator import ModelCreator
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
@@ -23,7 +25,9 @@ class ModelTrainer:
 
         self.label_id_dic = label_id_dic
 
-    def train_base(self, train_idx, test_idx):
+    def train_base(self, train_idx, test_idx, merge_classes=True):
+        if merge_classes:
+            self.apply_new_grouping()
         x_train = self.x[train_idx]
         y_train = self.y[train_idx]
 
@@ -50,8 +54,16 @@ class ModelTrainer:
             restore_best_weights=True,
             start_from_epoch=0,
         )
+        class_weight = self.compute_class_weights(y_train)
 
-        model.fit([x_train], y_train, epochs=100, batch_size=16, validation_split=0.2, verbose=1, callbacks=[es])
+        model.fit([x_train],
+                  y_train,
+                  epochs=100,
+                  batch_size=128,
+                  validation_split=0.2,
+                  verbose=1,
+                  class_weight=class_weight,
+                  callbacks=[es])
 
         self.evaluate_model(model, x_test, y_test)
 
@@ -100,20 +112,69 @@ class ModelTrainer:
         y_pred_probs = model.predict(x)
         y_pred = np.argmax(y_pred_probs, axis=-1)
 
-        labels_ids = sorted(self.label_id_dic.values())  # ergibt [0, 1, 2]
-        labels_names = [name for name, i in sorted(self.label_id_dic.items(), key=lambda x: x[1])]
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+
+        # label_id_dic is {id: name}
+        all_label_ids = sorted(self.label_id_dic.keys())
+
+        # Keep only labels that actually occur in this fold (true OR predicted)
+        present_ids = sorted(set(np.unique(y_true)).union(set(np.unique(y_pred))))
+        labels_ids = [i for i in all_label_ids if i in present_ids]
+        labels_names = [self.label_id_dic[i] for i in labels_ids]
+
+        if len(labels_ids) == 0:
+            print("⚠️ No labels present in y_true/y_pred for this fold. Skipping confusion matrix.")
+            return
 
         cm = metrics.confusion_matrix(y_true, y_pred, labels=labels_ids)
-
         cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_names)
 
-        # 5. Plotten
         fig, ax = plt.subplots(figsize=(8, 6))
-        cm_display.plot(ax=ax, cmap=plt.cm.Blues)
+        cm_display.plot(ax=ax, cmap=plt.cm.Blues, values_format="d")
         plt.title("Confusion Matrix (LOSO Fold)")
         plt.show()
 
-        print(metrics.classification_report(y_true, y_pred, target_names=labels_names, zero_division=0))
+        print(metrics.classification_report(
+            y_true,
+            y_pred,
+            labels=labels_ids,  # IMPORTANT: match filtered ids
+            target_names=labels_names,  # aligned names
+            zero_division=0
+        ))
+
+    def compute_class_weights(self, y_train):
+        classes = np.unique(y_train)
+        weights = class_weight.compute_class_weight(
+            class_weight='balanced',
+            classes=classes,
+            y=y_train
+        )
+        return dict(zip(classes, weights))
+
+    def apply_new_grouping(self):
+        id_to_new_id = {
+            0: 1,  # block -> Defensive Stance
+            1: 2,  # pass -> Passing
+            2: 0,  # run -> Active Movement
+            3: 0,  # dribble -> Active Movement
+            4: 3,  # shoot -> Shooting
+            5: 0,  # ball in hand -> Active Movement
+            6: 1,  # defense -> Defensive Stance
+            7: 0,  # pick -> Active Movement
+            8: 0,  # no_action -> Active Movement
+            9: 0  # walk -> Active Movement
+        }
+
+        self.y = np.array([id_to_new_id[val] for val in self.y])
+
+        self.label_id_dic = {
+            0: "Active Movement",
+            1: "Defensive Stance",
+            2: "Passing",
+            3: "Shooting"
+        }
+
 
     def train_xgb(self, train_idx, test_idx):
         x_train, x_test = self.x[train_idx], self.x[test_idx]

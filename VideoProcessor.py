@@ -2,6 +2,10 @@ import cv2 as cv
 import math
 import os
 import time
+import cv2
+from collections import defaultdict
+from pathlib import Path
+from tqdm import tqdm
 
 class VideoProcessor:
     def __init__(self, target_fps):
@@ -165,3 +169,35 @@ class VideoProcessor:
                     available_ports.append(dev_port)
             dev_port += 1
         return available_ports, working_ports
+
+
+def analyze_video_lengths(path):
+    path = Path(path)
+    bins = defaultdict(int)
+
+    video_files = list(path.glob("*.mp4"))
+
+    for video_path in tqdm(video_files, desc="Analyzing videos"):
+        cap = cv2.VideoCapture(str(video_path))
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+
+        cap.release()
+
+        if fps <= 0:
+            continue
+
+        duration = frames / fps
+        bucket = int(duration * 10)  # 0.1s buckets
+
+        bins[bucket] += 1
+
+    print("\nStatistik (0.1s Buckets):")
+    for k in sorted(bins):
+        start = k / 10
+        end = (k + 1) / 10
+        print(f"{start:.1f} - {end:.1f} Sekunden: {bins[k]} Videos")
+
+if __name__ == "__main__":
+    analyze_video_lengths("space_jam/examples")

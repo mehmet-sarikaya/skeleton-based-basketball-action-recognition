@@ -2,7 +2,6 @@ from KeypointDatasetProcessor import KeypointDatasetProcessor
 from ModelCreator import ModelCreator
 from ModelTrainer import ModelTrainer
 from KeypointDatasetCreator import KeypointDatasetCreator
-from KeypointDatasetCreator import KeypointDatasetCreator
 from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
@@ -16,11 +15,24 @@ class BasketballGestureRecognitionApp:
 
         self.n_splits = n_splits
 
-        self.label_id_dic = {
+        self.label_id_dic_old = {
             "dribbling": 0,
             "passing": 1,
             "throw": 2
         }
+
+        self.label_id_dic = {0: "block",
+                             1: "pass",
+                             2: "run",
+                             3: "dribble",
+                             4: "shoot",
+                             5: "ball in hand",
+                             6: "defense",
+                             7: "pick",
+                             8: "no_action",
+                             9: "walk"
+                             }
+        # 10: discard
 
         self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic, fps=self.fps)
         self.model_name = model_name
@@ -39,7 +51,7 @@ class BasketballGestureRecognitionApp:
 
     def load_dataset_and_train(self):
         self.keypt_processor.load_all_keypoints_data_in_dir(self.path_to_videos)
-        self.keypt_processor.prepare_data_for_training(win_len_sec=self.win_len_sec, stride_len_sec=self.stride_len_sec)
+        # self.keypt_processor.prepare_data_for_training(win_len_sec=self.win_len_sec, stride_len_sec=self.stride_len_sec)
         # self.keypt_processor.print_data_after_preparation()
         self.model_trainer = ModelTrainer(
             model_creator=self.model_creator,
@@ -49,24 +61,25 @@ class BasketballGestureRecognitionApp:
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
-        self.model_trainer.train_model_gkf(n_splits=self.n_splits)
+        # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
-        # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
+        self.model_trainer.train_model_sklearn_simple(test_size=0.1)
 
     def test_model(self):
         self.model_tester.test_model_on_video("videos/1080p_Mehmet_demo_video.mov")
 
 
 if __name__ == "__main__":
+    #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="conv2d",
-        n_splits=6,
-        fps=24,
-        win_len_sec=3,
+        model_name="cnn_lstm",
+        n_splits=2,
+        fps=10,
+        win_len_sec=1.5,
         stride_len_sec=1.5,
-        num_classes=3,
-        path_to_videos="videos")
+        num_classes=10,
+        path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
-    app.test_model()
+    app.load_dataset_and_train()
+    # app.test_model()

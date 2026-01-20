@@ -13,15 +13,15 @@ class ModelTester:
         self.label_id_dic = app.label_id_dic
         self.id_to_label = {v: k for k, v in self.label_id_dic.items()}
 
-        self.yolo_model = YOLO("yolov/yolo11n-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.yolo_model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=app.fps)
 
         self.target_fps = app.fps
         self.win_len_sec = app.win_len_sec
-        self.stride_len_sec = 0.5
+        self.stride_len_sec = 1.0
         self.stride_num_frames = app.stride_len_sec * app.fps
 
-        self.max_len = self.target_fps * self.win_len_sec
+        self.max_len = int(self.target_fps * self.win_len_sec)
 
         self.basketball_model = None
         self.current_class_id = 0
@@ -68,7 +68,7 @@ class ModelTester:
 
     def recognize_activity(self):
         if self.basketball_model is None:
-            self.basketball_model = tf.keras.models.load_model("models/bball_gesture_pose_a4670bdc.keras")
+            self.basketball_model = tf.keras.models.load_model("models/bball_gesture_pose_ba7c4445.keras")
 
         self.buffer_counter += 1
 
@@ -81,7 +81,7 @@ class ModelTester:
             self.current_class_id = int(np.argmax(probs, axis=-1)[0])
             self.pred_conf = float(np.max(probs))
 
-            predicted_label = self.id_to_label[self.current_class_id]
+            predicted_label = self.label_id_dic[self.current_class_id]
             print(f"Predicted Label: {predicted_label}, Confidence: {self.pred_conf} ")
 
     def draw_classification(self,result, annotated_frame):
@@ -89,7 +89,7 @@ class ModelTester:
             # bei 1 Person einfach die erste Box
             x1, y1, x2, y2 = result.boxes.xyxy[0].cpu().numpy().astype(int)
 
-            text = f"{self.id_to_label[self.current_class_id]} ({self.pred_conf:.2f})"
+            text = f"{self.label_id_dic[self.current_class_id]} ({self.pred_conf:.2f})"
 
             # 4) Text über der Box platzieren (mit kleiner Hintergrundbox für Lesbarkeit)
             (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
