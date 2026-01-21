@@ -64,7 +64,8 @@ class BasketballGestureRecognitionApp:
         # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
-        self.model_trainer.train_model_sklearn_simple(test_size=0.1)
+        # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
+        self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
     def test_model(self):
         self.model_tester.test_model_on_video("videos/1080p_Mehmet_demo_video.mov")
@@ -73,7 +74,7 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="cnn_lstm",
+        model_name="conv2d",
         n_splits=2,
         fps=10,
         win_len_sec=1.5,

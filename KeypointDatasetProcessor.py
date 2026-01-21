@@ -5,6 +5,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from Augmenter import Augmenter
 import json
 from tqdm import tqdm
+from scipy.ndimage import uniform_filter1d
 
 
 class KeypointDatasetProcessor:
@@ -67,6 +68,7 @@ class KeypointDatasetProcessor:
 
             data = np.load(file_path, allow_pickle=True)["data"]
             data = np.array(data)
+            data = self.smooth_and_centre_data(data)
             self.x.append(data)
             self.y.append(label_id)
 
@@ -107,6 +109,45 @@ class KeypointDatasetProcessor:
         self.y = data["y"]
         self.subjects = data["subjects"]
         self.is_original_data = data["is_original"]
+
+        for i in tqdm(range(len(self.x))):
+            transformed = self.smooth_and_centre_data(self.x[i])
+            self.x[i] = np.expand_dims(transformed, axis=-1)
+
+    def smooth_and_centre_data(self, sequence):
+        # 1. Sicherstellen, dass es ein NumPy Array ist
+        sequence = np.array(sequence)
+
+        # Falls sequence (15, 12, 2, 1) ist, auf (15, 12, 2) bringen
+        if sequence.ndim == 4:
+            sequence = np.squeeze(sequence, axis=-1)
+
+        # 2. Zeitliche Glättung
+        sequence = uniform_filter1d(sequence, size=3, axis=0)
+
+        # 3. Relative Zentrierung auf die Hüft-Mitte
+        for i in range(len(sequence)):
+            # Wir erzwingen hier (12, 2), falls noch eine Dimension dran klebt
+            frame_coords = sequence[i].reshape(12, 2)
+
+            hip_l = frame_coords[6]
+            hip_r = frame_coords[7]
+
+            if not (np.all(hip_l == 0) and np.all(hip_r == 0)):
+                center = (hip_l + hip_r) / 2
+
+                # Maske: Welche der 12 Gelenke sind erkannt worden?
+                # mask.shape wird (12,)
+                mask = np.any(frame_coords != 0, axis=1)
+
+                # Der eigentliche Fix:
+                # Wir subtrahieren den Center-Punkt nur von den validen Gelenken
+                frame_coords[mask] = frame_coords[mask] - center
+
+                # Zurückschreiben in die sequence
+                sequence[i] = frame_coords
+
+        return sequence
 
     def load_keypoints_data(self, path):
         for filename in os.listdir(path):

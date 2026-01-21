@@ -3,11 +3,12 @@ from VideoProcessor import VideoProcessor
 from ultralytics import YOLO
 import numpy as np
 from pathlib import Path
+from scipy.ndimage import uniform_filter1d
 
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.model = YOLO("yolov/yolo26l-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
@@ -19,20 +20,23 @@ class KeypointDatasetCreator:
         self.video_processor.process_video_per_frame_at_constant_fps(video_path, frame_callback=self.extract_keypoint_coordinates)
 
     def extract_keypoint_coordinates(self, frame):
-        # extract Keypoint Coordinates (returns just one result since one picture)
         results = self.model.track(frame, persist=True, verbose=False)
         result = results[0]
 
-        if result is None or len(result.keypoints.xyn) == 0:
+        if result.keypoints is None or len(result.keypoints.xyn) == 0:
+            # Falls kein Skelett gefunden wurde: Buffer mit Nullen füllen
+            # oder Frame überspringen (Nullen halten die Sequenzlänge konstant)
+            self.keypoints_buffer.append(np.zeros((12, 2)))
             return
 
-        xyn = result.keypoints.xyn  # normalized keypoints of all persons
+        coords = result.keypoints.xyn[0][5:].cpu().numpy()
+        conf = result.keypoints.conf[0][5:].cpu().numpy()
 
-        # if multiple persons are there extract just from single person
-        # and without head joints
-        single_person_coordinates = xyn[0][5:].cpu().numpy()
+        # Setze unsichere Gelenke auf (0,0)
+        threshold = 0.5
+        coords[conf < threshold] = [0, 0]
 
-        self.keypoints_buffer.append(single_person_coordinates)
+        self.keypoints_buffer.append(coords)
 
     def create_keypoints_dataset(self, path):
         print(f"Processing {path}")

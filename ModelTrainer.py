@@ -25,9 +25,12 @@ class ModelTrainer:
 
         self.label_id_dic = label_id_dic
 
-    def train_base(self, train_idx, test_idx, merge_classes=True):
+    def train_base(self, train_idx, test_idx, merge_classes=False):
+        self.check_label_distribution()
+
         if merge_classes:
             self.apply_new_grouping()
+
         x_train = self.x[train_idx]
         y_train = self.y[train_idx]
 
@@ -37,7 +40,7 @@ class ModelTrainer:
         # create new model each time
         model = self.model_creator.create_model()
 
-        hp_learning_rate = 0.00005  # Hyperparameter for learning rate
+        hp_learning_rate = 0.00001  # Hyperparameter for learning rate
 
         optimizer = Adam(learning_rate=hp_learning_rate)
 
@@ -47,7 +50,7 @@ class ModelTrainer:
         es = EarlyStopping(
             monitor="val_loss",
             min_delta=0.01,
-            patience=8,
+            patience=20,
             verbose=0,
             mode="auto",
             baseline=None,
@@ -96,6 +99,9 @@ class ModelTrainer:
 
     def train_model_sklearn_simple(self, test_size=0.2):
         """Klassischer Split: Mischt alle Fenster zufällig."""
+        self.check_label_distribution()
+        # self.balance_data(max_samples_per_class=2000)
+
         indices = np.arange(len(self.x))
 
         train_idx, test_idx = train_test_split(
@@ -175,6 +181,62 @@ class ModelTrainer:
             3: "Shooting"
         }
 
+    def check_label_distribution(self):
+        """Gibt die Anzahl der Samples pro Klasse aus."""
+        # IDs und deren Häufigkeit zählen
+        unique, counts = np.unique(self.y, return_counts=True)
+        counts_dict = dict(zip(unique, counts))
+
+        print(f"{'ID':<5} | {'Label Name':<20} | {'Anzahl':<10} | {'Anteil':<10}")
+        print("-" * 55)
+
+        total = len(self.y)
+        for label_id in sorted(self.label_id_dic.keys()):
+            count = counts_dict.get(label_id, 0)
+            name = self.label_id_dic[label_id]
+            percentage = (count / total) * 100
+            print(f"{label_id:<5} | {name:<20} | {count:<10} | {percentage:>6.2f}%")
+
+        print("-" * 55)
+        print(f"Gesamtanzahl Samples: {total}")
+
+    def balance_data(self, max_samples_per_class=5000):
+        """
+        Balanciert die Daten in self.x, self.y, self.subjects
+        und self.is_original_data durch Downsampling.
+        """
+        unique_classes = np.unique(self.y)
+        indices_to_keep = []
+
+        for c in unique_classes:
+            class_indices = np.where(self.y == c)[0]
+            if len(class_indices) > max_samples_per_class:
+                # Zufällige Auswahl ohne Zurücklegen
+                keep = np.random.choice(class_indices, max_samples_per_class, replace=False)
+                indices_to_keep.extend(keep)
+            else:
+                # Wenn Klasse kleiner als das Limit ist, behalte alle Samples
+                indices_to_keep.extend(class_indices)
+
+        # Indices in ein Numpy-Array umwandeln und mischen
+        indices_to_keep = np.array(indices_to_keep)
+        np.random.seed(self.random_state)  # Für Reproduzierbarkeit
+        np.random.shuffle(indices_to_keep)
+
+        # Alle Datenfelder synchron mit den neuen Indices überschreiben
+        self.x = self.x[indices_to_keep]
+        self.y = self.y[indices_to_keep]
+        self.subjects = self.subjects[indices_to_keep]
+
+        # Hier ist die wichtige Zeile für deine Original-Daten-Maske
+        if hasattr(self, 'is_original_data'):
+            self.is_original_data = self.is_original_data[indices_to_keep]
+
+        print(f"✅ Data balanced. New total samples: {len(self.y)}")
+
+        # Verteilung zur Kontrolle ausgeben
+        self.check_label_distribution()
+
 
     def train_xgb(self, train_idx, test_idx):
         x_train, x_test = self.x[train_idx], self.x[test_idx]
@@ -204,8 +266,20 @@ class ModelTrainer:
     def evaluate_xgb(self, model, x_flat, y_true):
         y_pred = model.predict(x_flat)
 
-        labels_ids = sorted(self.label_id_dic.values())
-        labels_names = [name for name, i in sorted(self.label_id_dic.items(), key=lambda x: x[1])]
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+
+        # label_id_dic is {id: name}
+        all_label_ids = sorted(self.label_id_dic.keys())
+
+        # Keep only labels that actually occur in this fold (true OR predicted)
+        present_ids = sorted(set(np.unique(y_true)).union(set(np.unique(y_pred))))
+        labels_ids = [i for i in all_label_ids if i in present_ids]
+        labels_names = [self.label_id_dic[i] for i in labels_ids]
+
+        if len(labels_ids) == 0:
+            print("⚠️ No labels present in y_true/y_pred for this fold. Skipping confusion matrix.")
+            return
 
         cm = metrics.confusion_matrix(y_true, y_pred, labels=labels_ids)
         cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_names)
@@ -222,3 +296,20 @@ class ModelTrainer:
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
             print(f"\n--- XGBoost Fold {i + 1} ---")
             self.train_xgb(train_idx, test_idx)
+
+    def train_model_xgb_simple_sklearn(self, test_size=0.2):
+        """Klassischer Split: Mischt alle Fenster zufällig."""
+        self.check_label_distribution()
+        # self.balance_data(max_samples_per_class=2000)
+
+        indices = np.arange(len(self.x))
+
+        train_idx, test_idx = train_test_split(
+            indices,
+            test_size=test_size,
+            shuffle=True,
+            random_state=self.random_state
+        )
+
+        print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
+        self.train_xgb(train_idx, test_idx)
