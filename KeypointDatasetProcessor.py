@@ -103,18 +103,19 @@ class KeypointDatasetProcessor:
             is_original=self.is_original_data
         )
 
-    def load_big_file(self):
+    def load_big_file(self, smooth_data=False):
         data = np.load("dataset_all.npz")
         self.x = data["X"]
         self.y = data["y"]
         self.subjects = data["subjects"]
         self.is_original_data = data["is_original"]
 
-        for i in tqdm(range(len(self.x))):
-            transformed = self.smooth_and_centre_data(self.x[i])
-            self.x[i] = np.expand_dims(transformed, axis=-1)
+        if smooth_data:
+            for i in tqdm(range(len(self.x))):
+                transformed = self.smooth_and_centre_data(self.x[i])
+                self.x[i] = np.expand_dims(transformed, axis=-1)
 
-    def smooth_and_centre_data(self, sequence):
+    def smooth_and_centre_data(self, sequence, center_data=False):
         # 1. Sicherstellen, dass es ein NumPy Array ist
         sequence = np.array(sequence)
 
@@ -124,6 +125,9 @@ class KeypointDatasetProcessor:
 
         # 2. Zeitliche Glättung
         sequence = uniform_filter1d(sequence, size=3, axis=0)
+
+        if not center_data:
+            return sequence
 
         # 3. Relative Zentrierung auf die Hüft-Mitte
         for i in range(len(sequence)):

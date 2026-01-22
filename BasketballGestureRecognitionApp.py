@@ -5,7 +5,8 @@ from KeypointDatasetCreator import KeypointDatasetCreator
 from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
-    def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos):
+    def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos,
+                 batch_size=64, lr=0.0001, patience=20):
         self.fps = fps
         self.win_len_sec = win_len_sec
         self.stride_len_sec = stride_len_sec
@@ -14,6 +15,9 @@ class BasketballGestureRecognitionApp:
         self.keypt_dataset_creator = KeypointDatasetCreator(target_fps=self.fps)
 
         self.n_splits = n_splits
+        self.batch_size = batch_size
+        self.lr = lr
+        self.patience = patience
 
         self.label_id_dic_old = {
             "dribbling": 0,
@@ -57,15 +61,18 @@ class BasketballGestureRecognitionApp:
             model_creator=self.model_creator,
             keypt_processor=self.keypt_processor,
             label_id_dic=self.label_id_dic,
-            random_state=25
+            random_state=25,
+            batch_size=self.batch_size,
+            lr=self.lr,
+            patience=self.patience
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
-        # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
-        self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
+        self.model_trainer.train_model_sklearn_simple(test_size=0.2)
+        # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
     def test_model(self):
         self.model_tester.test_model_on_video("videos/1080p_Mehmet_demo_video.mov")
@@ -74,13 +81,16 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="conv2d",
+        model_name="cnn_lstm",
         n_splits=2,
         fps=10,
         win_len_sec=1.5,
         stride_len_sec=1.5,
         num_classes=10,
-        path_to_videos="space_jam/examples")
-    # app.create_dataset_from_videos()
-    app.load_dataset_and_train()
+        batch_size=64,
+        lr=0.0001,
+        patience=30,
+        path_to_videos="./")
+    app.create_dataset_from_videos()
+    # app.load_dataset_and_train()
     # app.test_model()

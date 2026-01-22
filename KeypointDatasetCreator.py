@@ -3,12 +3,12 @@ from VideoProcessor import VideoProcessor
 from ultralytics import YOLO
 import numpy as np
 from pathlib import Path
-from scipy.ndimage import uniform_filter1d
+from tqdm import tqdm
 
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo26l-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.model = YOLO("yolov/yolo26x-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
@@ -38,23 +38,23 @@ class KeypointDatasetCreator:
 
         self.keypoints_buffer.append(coords)
 
+    import os
+    from pathlib import Path
+    from tqdm import tqdm
+
     def create_keypoints_dataset(self, path):
         print(f"Processing {path}")
+        sub_dirs = [s for s in os.listdir(path) if os.path.isdir(os.path.join(path, s))]
 
-        for sub in os.listdir(path):
-            sub_dir_path = os.path.join(path,sub)
+        for sub in tqdm(sub_dirs, desc="Overall Progress (Folders)", unit="folder"):
+            sub_dir_path = os.path.join(path, sub)
 
-            # don't process single file here
-            if not os.path.isdir(sub_dir_path):
-                continue
+            video_files = [
+                f for f in os.listdir(sub_dir_path)
+                if Path(f).suffix in self.allowed_video_formats
+            ]
 
-            for filename in os.listdir(sub_dir_path):
-                # process only videos
-                print(Path(filename).suffix)
-                if not Path(filename).suffix in self.allowed_video_formats:
-                    continue
-
-                print(f"---------------- Processing {filename} ----------------")
+            for filename in tqdm(video_files, desc=f"Folder: {sub}", unit="file", leave=False):
                 file_path = os.path.join(sub_dir_path, filename)
 
                 self.extract_keypoints_one_person_single_video(file_path)

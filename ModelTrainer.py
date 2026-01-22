@@ -4,9 +4,12 @@ from ModelCreator import ModelCreator
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
 from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold, train_test_split
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, Callback, TensorBoard
+from keras.utils import to_categorical
 import numpy as np
 import uuid
+import os
+import datetime
 
 #evaluation
 from sklearn import metrics
@@ -15,9 +18,13 @@ import xgboost as xgb
 
 class ModelTrainer:
     def __init__(self, model_creator: ModelCreator, keypt_processor: KeypointDatasetProcessor, label_id_dic,
-                 random_state=42):
+                 batch_size, lr, patience, random_state=42):
         self.model_creator = model_creator
         self.random_state = random_state
+        self.batch_size = batch_size
+        self.lr = lr
+        self.patience = patience
+
         self.x = keypt_processor.x
         self.y = keypt_processor.y
         self.subjects = keypt_processor.subjects
@@ -32,41 +39,58 @@ class ModelTrainer:
             self.apply_new_grouping()
 
         x_train = self.x[train_idx]
-        y_train = self.y[train_idx]
+        y_train = to_categorical(self.y[train_idx], num_classes=10)
 
         x_test = self.x[test_idx][self.is_original_data[test_idx]]
-        y_test = self.y[test_idx][self.is_original_data[test_idx]]
+        y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=10)
 
         # create new model each time
         model = self.model_creator.create_model()
 
-        hp_learning_rate = 0.00001  # Hyperparameter for learning rate
-
-        optimizer = Adam(learning_rate=hp_learning_rate)
+        optimizer = Adam(learning_rate=self.lr)
 
         # Compile the model
-        model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy')
+        model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
         es = EarlyStopping(
             monitor="val_loss",
             min_delta=0.01,
-            patience=20,
+            patience=self.patience,
             verbose=0,
             mode="auto",
             baseline=None,
             restore_best_weights=True,
             start_from_epoch=0,
         )
-        class_weight = self.compute_class_weights(y_train)
+        best_val_loss = BestValLossCallback()
 
-        model.fit([x_train],
-                  y_train,
-                  epochs=100,
-                  batch_size=128,
-                  validation_split=0.2,
+        log_run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = "logs"
+
+        tboard = TensorBoard(
+            log_dir=log_dir,
+            histogram_freq=1,  # Records weights distribution every epoch
+            write_graph=True,  # Visualizes the model architecture
+            update_freq='epoch'  # How often to write logs
+        )
+
+        # class_weight = self.compute_class_weights(y_train)
+
+        x_t, x_val, y_t, y_val = train_test_split(
+            x_train, y_train,
+            test_size=0.2,
+            random_state=self.random_state,
+            shuffle=True,
+            stratify=np.argmax(y_train, axis=1)  # Sorgt für gleiche Klassenverteilung
+        )
+
+        model.fit(x_t,
+                  y_t,
+                  epochs=1000,
+                  batch_size=self.batch_size,
+                  validation_data=(x_val, y_val),
                   verbose=1,
-                  class_weight=class_weight,
-                  callbacks=[es])
+                  callbacks=[es, best_val_loss, tboard])
 
         self.evaluate_model(model, x_test, y_test)
 
@@ -119,6 +143,7 @@ class ModelTrainer:
         y_pred = np.argmax(y_pred_probs, axis=-1)
 
         y_true = np.asarray(y_true)
+        y_true = np.argmax(y_true, axis=-1)
         y_pred = np.asarray(y_pred)
 
         # label_id_dic is {id: name}
@@ -313,3 +338,14 @@ class ModelTrainer:
 
         print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
         self.train_xgb(train_idx, test_idx)
+
+
+class BestValLossCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        val_losses = self.model.history.history.get("val_loss", None)
+        if val_losses is None:
+            print("No validation loss recorded.")
+            return
+        best_epoch = int(np.argmin(val_losses)) + 1
+        best_val_loss = float(np.min(val_losses))
+        print(f"\nBest val_loss = {best_val_loss:.6f} at epoch {best_epoch}")

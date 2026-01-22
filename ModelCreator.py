@@ -2,6 +2,8 @@ import tensorflow as tf
 from tensorflow.keras import models,layers
 from keras.layers import Dense, Dropout, BatchNormalization, Conv1D, MaxPooling1D, LSTM, TimeDistributed, Reshape, Flatten
 
+from Graph_Model_Creator import build_stgcn_12kp
+
 
 class ModelCreator:
     def __init__(self, model_name, win_len_sec, fps, num_classes):
@@ -21,7 +23,8 @@ class ModelCreator:
             "ind_4": self.create_industry_4_model,
             "small_cnn": self.create_small_robust_cnn,
             "small_cnn_lstm": self.create_small_robust_cnn_lstm,
-            "bilstm": self.create_short_sequence_model()
+            "bilstm": self.create_short_sequence_model,
+            "gcn": self.create_gcn_model
         }
 
     def create_model(self):
@@ -261,3 +264,15 @@ class ModelCreator:
             ]
         )
         return self.model
+
+    def create_gcn_model(self):
+        EDGES_12 = [
+            (0, 1),
+            (0, 2), (2, 4),
+            (1, 3), (3, 5),
+            (0, 6), (1, 7),
+            (6, 7),
+            (6, 8), (8, 10),
+            (7, 9), (9, 11),
+        ]
+        return build_stgcn_12kp(self.input_shape, self.num_classes, EDGES_12, temporal_kernel=9)
