@@ -88,12 +88,17 @@ class KeypointDatasetCreator:
 
     def load_annotation_dict(self, path: Path):
         dict_path = path / "annotation_dict.json"
+
+        if not dict_path.exists():
+            dict_path = path.parent / "annotation_dict.json"
+
+        if not dict_path.exists():
+            raise FileNotFoundError(f"annotation_dict.json wurde weder in {path} noch in {path.parent} gefunden!")
+
         with dict_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
         # keys: video_id (string), values: label_id (int)
         self.annotation_dict = {str(k): int(v) for k, v in data.items()}
-
-
 
     def save_keypoint_single_video(self, path):
         filename = Path(path).stem

@@ -92,7 +92,7 @@ if __name__ == "__main__":
         batch_size=64,
         lr=0.01,
         patience=20,
-        path_to_videos="examples")
+        path_to_videos="space_jam/examples")
     app.create_dataset_from_videos()
     # app.load_dataset_and_train()
     # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
