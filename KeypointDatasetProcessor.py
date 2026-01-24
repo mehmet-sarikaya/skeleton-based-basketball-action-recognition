@@ -25,7 +25,7 @@ class KeypointDatasetProcessor:
 
         self.x = []
         self.y = []
-        self.subjects = []
+        self.video_id = []
         self.is_original_data = []
 
         self.allowed_datatypes = [".npy", ".npz"]
@@ -33,87 +33,18 @@ class KeypointDatasetProcessor:
 
         self.augmenter = Augmenter(self.fps)
 
-    def load_all_keypoints_data_in_dir_old(self, path):
-        for subdir in os.listdir(path):
-            subdir_path = os.path.join(path,subdir)
+    def load_dataset(self, path, smooth_data=False):
+        with np.load(path, allow_pickle=True) as data:
+            self.x = data["x"]
+            self.y = data["y"]
+            self.video_id = data["video_id"]
+            self.is_original_data = data["is_original_data"]
 
-            # don't process single file here
-            if not os.path.isdir(subdir_path):
-                continue
-
-            if subdir in self.data_dic:
-                self.current_label_keypoints_per_video = self.data_dic[subdir]
-                self.load_keypoints_data(subdir_path)
-            else:
-                print(f"Don't process {subdir} folder since it's not named after any label: {self.data_dic.keys()}")
-
-    def load_annotation_dict(self, path: Path):
-        dict_path = path / "annotation_dict.json"
-        with dict_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        # keys: video_id (string), values: label_id (int)
-        self.annotation_dict = {str(k): int(v) for k, v in data.items()}
-
-    def load_all_keypoints_data_in_dir(self, path):
-        if Path("dataset_all.npz").exists():
-            self.load_big_file()
-            return
-
-        path = Path(path)
-        self.load_annotation_dict(path)
-        global_subject_counter = 0
-        for video_id, label_id in tqdm(self.annotation_dict.items(), desc="Loading keypoints"):
-            video_id = video_id + ".npz"
-            file_path = path / video_id
-
-            data = np.load(file_path, allow_pickle=True)["data"]
-            data = np.array(data)
-            data = self.smooth_and_centre_data(data)
-            self.x.append(data)
-            self.y.append(label_id)
-
-            #rather video_id_belonging
-            self.subjects.append(global_subject_counter)
-
-            if "_flipped" in video_id:
-                self.is_original_data.append(False)
-            else:
-                global_subject_counter += 1
-                self.is_original_data.append(True)
-
-        self.x = pad_sequences(
-            self.x,
-            maxlen=15,
-            dtype="float32",
-            padding="post",  # pad at end
-            truncating="post",  # cut at end if longer
-            value=0.0
-        )
-        self.x = np.expand_dims(self.x, axis=-1)
-
-        self.y = np.array(self.y)
-        self.subjects = np.array(self.subjects)
-        self.is_original_data = np.array(self.is_original_data)
-
-        np.savez_compressed(
-            "dataset_all.npz",
-            X=self.x,
-            y=self.y,
-            subjects=self.subjects,
-            is_original=self.is_original_data
-        )
-
-    def load_big_file(self, smooth_data=False):
-        data = np.load("dataset_all.npz")
-        self.x = data["X"]
-        self.y = data["y"]
-        self.subjects = data["subjects"]
-        self.is_original_data = data["is_original"]
+        print(f"Daten geladen: {self.x.shape}")
 
         if smooth_data:
-            for i in tqdm(range(len(self.x))):
-                transformed = self.smooth_and_centre_data(self.x[i])
-                self.x[i] = np.expand_dims(transformed, axis=-1)
+            for i in range(len(self.x)):
+                self.x[i] = self.smooth_and_centre_data(self.x[i])
 
     def smooth_and_centre_data(self, sequence, center_data=False):
         # 1. Sicherstellen, dass es ein NumPy Array ist
@@ -152,6 +83,27 @@ class KeypointDatasetProcessor:
                 sequence[i] = frame_coords
 
         return sequence
+
+    # for own created dataset old
+    #
+    #
+    #
+    #
+    #
+
+    def load_all_keypoints_data_in_dir_old(self, path):
+        for subdir in os.listdir(path):
+            subdir_path = os.path.join(path,subdir)
+
+            # don't process single file here
+            if not os.path.isdir(subdir_path):
+                continue
+
+            if subdir in self.data_dic:
+                self.current_label_keypoints_per_video = self.data_dic[subdir]
+                self.load_keypoints_data(subdir_path)
+            else:
+                print(f"Don't process {subdir} folder since it's not named after any label: {self.data_dic.keys()}")
 
     def load_keypoints_data(self, path):
         for filename in os.listdir(path):
@@ -196,7 +148,7 @@ class KeypointDatasetProcessor:
 
                     self.x.append(new_sliding_window)
                     self.y.append(gesture_id)
-                    self.subjects.append(global_subject_counter)
+                    self.video_id.append(global_subject_counter)
                     self.is_original_data.append(True)
 
                     # augmentation
@@ -204,7 +156,7 @@ class KeypointDatasetProcessor:
                     self.x.extend(augmented_windows)
                     for i in range(len(augmented_windows)):
                         self.y.append(gesture_id)
-                        self.subjects.append(global_subject_counter)
+                        self.video_id.append(global_subject_counter)
                         self.is_original_data.append(False)
 
                 global_subject_counter += 1
@@ -219,7 +171,7 @@ class KeypointDatasetProcessor:
 
         self.x = np.expand_dims(self.x, axis=-1)
         self.y = np.array(self.y)
-        self.subjects = np.array(self.subjects)
+        self.video_id = np.array(self.video_id)
         self.is_original_data = np.array(self.is_original_data)
 
     def prepare_data_for_training(self, win_len_sec=3, stride_len_sec=1):
@@ -247,7 +199,7 @@ class KeypointDatasetProcessor:
 
                     self.x.append(new_sliding_window)
                     self.y.append(gesture_id)
-                    self.subjects.append(global_subject_counter)
+                    self.video_id.append(global_subject_counter)
                     self.is_original_data.append(True)
 
                     # augmentation
@@ -255,7 +207,7 @@ class KeypointDatasetProcessor:
                     self.x.extend(augmented_windows)
                     for i in range(len(augmented_windows)):
                         self.y.append(gesture_id)
-                        self.subjects.append(global_subject_counter)
+                        self.video_id.append(global_subject_counter)
                         self.is_original_data.append(False)
 
                 global_subject_counter += 1
@@ -270,7 +222,7 @@ class KeypointDatasetProcessor:
 
         self.x = np.expand_dims(self.x, axis=-1)
         self.y = np.array(self.y)
-        self.subjects = np.array(self.subjects)
+        self.video_id = np.array(self.video_id)
         self.is_original_data = np.array(self.is_original_data)
 
     def print_data_after_preparation(self):
@@ -279,7 +231,7 @@ class KeypointDatasetProcessor:
         print("=" * 30)
         print(f"Total Windows (Samples): {len(self.x)}")
         print(f"Window Shape (Frames x Features): {self.x.shape[1:] if len(self.x) > 0 else 'N/A'}")
-        print(f"Total Unique Subjects: {len(np.unique(self.subjects))}")
+        print(f"Total Unique Subjects: {len(np.unique(self.video_id))}")
 
         print("\nWindows per Gesture:")
         # Reverse lookup for gesture names
@@ -289,8 +241,3 @@ class KeypointDatasetProcessor:
         for label_id, count in zip(unique_labels, counts):
             print(f" - {id_to_label[label_id]}: {count} windows")
         print("=" * 30 + "\n")
-
-
-if __name__ == "__main__":
-    data_processor = KeypointDatasetProcessor()
-    data_processor.load_all_keypoints_data_in_dir("videos")

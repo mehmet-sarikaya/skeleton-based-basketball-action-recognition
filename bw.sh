@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --partition=gpu_8       # Wähle die Partition mit GPUs
+#SBATCH --partition=dev_gpu_a100_il       # Wähle die Partition mit GPUs
 #SBATCH --gres=gpu:1            # Fordere 2 GPUs an
 #SBATCH --time=48:00:00         # Setze die maximale Laufzeit (hier 2 Stunden)
-#SBATCH --mem=180G              # Setze den benötigten Speicher
-#SBATCH --cpus-per-task=16      # Anzahl CPUs pro Task
+#SBATCH --mem=32G              # Setze den benötigten Speicher
+#SBATCH --cpus-per-task=8      # Anzahl CPUs pro Task
 #SBATCH --job-name=device_combis          # Setze den Job-Namen
 #SBATCH --output=%x_%j.out     # Datei für die Ausgabe (mit Job-ID)
 

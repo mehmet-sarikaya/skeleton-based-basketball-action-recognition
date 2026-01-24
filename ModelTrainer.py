@@ -27,7 +27,7 @@ class ModelTrainer:
 
         self.x = keypt_processor.x
         self.y = keypt_processor.y
-        self.subjects = keypt_processor.subjects
+        self.video_id = keypt_processor.video_id
         self.is_original_data = keypt_processor.is_original_data
 
         self.num_classes = num_classes
@@ -107,17 +107,17 @@ class ModelTrainer:
 
     def train_model_loso(self):
         logo = LeaveOneGroupOut()
-        for train_idx, test_idx in logo.split(self.x, self.y, groups=self.subjects):
+        for train_idx, test_idx in logo.split(self.x, self.y, groups=self.video_id):
             self.train_base(train_idx, test_idx)
 
     def train_model_gkf(self, n_splits):
         group_kfold = GroupKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
-        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
+        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
             self.train_base(train_idx, test_idx)
 
     def train_model_sgkf(self, n_splits):
         group_kfold = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
-        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
+        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
             self.train_base(train_idx, test_idx)
 
     def train_model_classic_kfold(self, n_splits=2):
@@ -234,7 +234,7 @@ class ModelTrainer:
 
     def balance_data(self, max_samples_per_class=5000):
         """
-        Balanciert die Daten in self.x, self.y, self.subjects
+        Balanciert die Daten in self.x, self.y, self.video_id
         und self.is_original_data durch Downsampling.
         """
         unique_classes = np.unique(self.y)
@@ -258,7 +258,7 @@ class ModelTrainer:
         # Alle Datenfelder synchron mit den neuen Indices überschreiben
         self.x = self.x[indices_to_keep]
         self.y = self.y[indices_to_keep]
-        self.subjects = self.subjects[indices_to_keep]
+        self.video_id = self.video_id[indices_to_keep]
 
         # Hier ist die wichtige Zeile für deine Original-Daten-Maske
         if hasattr(self, 'is_original_data'):
@@ -325,7 +325,7 @@ class ModelTrainer:
 
     def train_model_xgb_gkf(self, n_splits):
         group_kfold = GroupKFold(n_splits)
-        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.subjects)):
+        for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
             print(f"\n--- XGBoost Fold {i + 1} ---")
             self.train_xgb(train_idx, test_idx)
 
