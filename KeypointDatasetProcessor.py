@@ -36,10 +36,18 @@ class KeypointDatasetProcessor:
     def load_dataset(self, path, smooth_data=False):
         path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
-            self.x = data["x"]
+            print(data)
+            self.x = data["X"]
             self.y = data["y"]
-            self.video_id = data["video_id"]
-            self.is_original_data = data["is_original_data"]
+            try:
+                self.video_id = data["video_id"]
+            except KeyError:
+                self.video_id = data["subjects"]
+
+            try:
+                self.is_original_data = data["is_original_data"]
+            except KeyError:
+                self.is_original_data = data["is_original"]
 
         print(f"Daten geladen: {self.x.shape}")
 
