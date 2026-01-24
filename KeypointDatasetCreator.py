@@ -23,21 +23,45 @@ class KeypointDatasetCreator:
             "is_original_data": []
         }
 
-    def extract_keypoints_one_person_single_video(self, video_path: str):
+    def extract_keypoints_one_person_single_video(self, video_path: str, show=False):
         self.keypoints_buffer = []
-        self.video_processor.process_video_per_frame_at_constant_fps(
-            video_path, frame_callback=self.extract_keypoint_coordinates, verbose=False)
+        results = self.model.track(source=video_path, persist=True, show=show, verbose=False, stream=True)
+        for result in results:
+            self.extract_keypoint_coordinates(result)
 
-    def extract_keypoint_coordinates(self, frame):
-        results = self.model.track(frame, persist=True, verbose=False)
-        result = results[0]
-
+    def extract_keypoint_coordinates(self, result):
         if result.keypoints is None or len(result.keypoints.xyn) == 0:
-            self.keypoints_buffer.append(np.zeros((12, 2)))
+            self.keypoints_buffer.append(np.zeros((12, 3)))
             return
 
-        coords = result.keypoints.xyn[0][5:].cpu().numpy()
-        conf = result.keypoints.conf[0][5:].cpu().numpy()
+        # print(result)
+
+        # Find the index of the person closest to the center
+        # result.boxes.xyxyn contains normalized [xmin, ymin, xmax, ymax]
+        boxes = result.boxes.xyxyn.cpu().numpy()
+
+        best_idx = 0
+        if len(boxes) > 1:
+            max_area = -1.0
+            for i, box in enumerate(boxes):
+                # Fläche berechnen: (xmax - xmin) * (ymax - ymin)
+                width = box[2] - box[0]
+                height = box[3] - box[1]
+                area = width * height
+
+                if area > max_area:
+                    max_area = area
+                    best_idx = i
+
+        if result.boxes.id is not None:
+            track_id = int(result.boxes.id[best_idx].item())
+            # print(f"Tracking ID in center: {track_id}")
+        else:
+            # print("No Tracker ID assigned yet.")
+            pass
+
+        coords = result.keypoints.xyn[best_idx][5:].cpu().numpy()
+        conf = result.keypoints.conf[best_idx][5:].cpu().numpy()
         conf = conf.reshape(-1, 1)
 
         combined = np.concatenate([coords, conf], axis=1)
