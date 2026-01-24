@@ -17,7 +17,8 @@ class KeypointDatasetCreator:
 
     def extract_keypoints_one_person_single_video(self, video_path: str):
         self.keypoints_buffer = []
-        self.video_processor.process_video_per_frame_at_constant_fps(video_path, frame_callback=self.extract_keypoint_coordinates)
+        self.video_processor.process_video_per_frame_at_constant_fps(
+            video_path, frame_callback=self.extract_keypoint_coordinates, verbose=False)
 
     def extract_keypoint_coordinates(self, frame):
         results = self.model.track(frame, persist=True, verbose=False)

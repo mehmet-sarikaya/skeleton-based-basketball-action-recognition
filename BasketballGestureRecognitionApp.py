@@ -64,7 +64,8 @@ class BasketballGestureRecognitionApp:
             random_state=25,
             batch_size=self.batch_size,
             lr=self.lr,
-            patience=self.patience
+            patience=self.patience,
+            num_classes=self.num_classes
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
@@ -74,8 +75,10 @@ class BasketballGestureRecognitionApp:
         self.model_trainer.train_model_sklearn_simple(test_size=0.2)
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
-    def test_model(self):
-        self.model_tester.test_model_on_video("videos/1080p_Mehmet_demo_video.mov")
+    def test_model(self, model_path):
+        self.model_tester.test_model_on_video(
+            video_path="videos/1080p_Mehmet_demo_video.mov",
+            model_path=model_path)
 
 
 if __name__ == "__main__":
@@ -88,9 +91,10 @@ if __name__ == "__main__":
         stride_len_sec=1.5,
         num_classes=10,
         batch_size=64,
-        lr=0.0001,
-        patience=30,
-        path_to_videos="./")
-    app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
-    # app.test_model()
+        lr=0.01,
+        patience=20,
+        path_to_videos="space_jam/examples")
+    # app.create_dataset_from_videos()
+    app.load_dataset_and_train()
+    # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
+

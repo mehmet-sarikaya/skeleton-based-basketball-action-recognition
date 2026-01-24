@@ -4,7 +4,7 @@ from ModelCreator import ModelCreator
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
 from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold, train_test_split
-from keras.callbacks import EarlyStopping, Callback, TensorBoard
+from keras.callbacks import EarlyStopping, Callback, TensorBoard, ReduceLROnPlateau
 from keras.utils import to_categorical
 import numpy as np
 import uuid
@@ -18,7 +18,7 @@ import xgboost as xgb
 
 class ModelTrainer:
     def __init__(self, model_creator: ModelCreator, keypt_processor: KeypointDatasetProcessor, label_id_dic,
-                 batch_size, lr, patience, random_state=42):
+                 batch_size, lr, patience, num_classes, random_state=42):
         self.model_creator = model_creator
         self.random_state = random_state
         self.batch_size = batch_size
@@ -30,6 +30,8 @@ class ModelTrainer:
         self.subjects = keypt_processor.subjects
         self.is_original_data = keypt_processor.is_original_data
 
+        self.num_classes = num_classes
+
         self.label_id_dic = label_id_dic
 
     def train_base(self, train_idx, test_idx, merge_classes=False):
@@ -39,10 +41,10 @@ class ModelTrainer:
             self.apply_new_grouping()
 
         x_train = self.x[train_idx]
-        y_train = to_categorical(self.y[train_idx], num_classes=10)
+        y_train = to_categorical(self.y[train_idx], num_classes=self.num_classes)
 
         x_test = self.x[test_idx][self.is_original_data[test_idx]]
-        y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=10)
+        y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=self.num_classes)
 
         # create new model each time
         model = self.model_creator.create_model()
@@ -74,7 +76,7 @@ class ModelTrainer:
             update_freq='epoch'  # How often to write logs
         )
 
-        # class_weight = self.compute_class_weights(y_train)
+        reduce_lr = ReduceLROnPlateau(patience=int(self.patience*0.35), factor=0.7, min_lr=self.lr/10, verbose=1)
 
         x_t, x_val, y_t, y_val = train_test_split(
             x_train, y_train,
@@ -84,13 +86,17 @@ class ModelTrainer:
             stratify=np.argmax(y_train, axis=1)  # Sorgt für gleiche Klassenverteilung
         )
 
+
+        class_weight = self.compute_class_weights(y_t)
+
         model.fit(x_t,
                   y_t,
                   epochs=1000,
                   batch_size=self.batch_size,
                   validation_data=(x_val, y_val),
+                  class_weight=class_weight,
                   verbose=1,
-                  callbacks=[es, best_val_loss, tboard])
+                  callbacks=[es, best_val_loss, tboard, reduce_lr])
 
         self.evaluate_model(model, x_test, y_test)
 
@@ -175,11 +181,12 @@ class ModelTrainer:
         ))
 
     def compute_class_weights(self, y_train):
-        classes = np.unique(y_train)
+        y_to_integers = np.argmax(y_train,axis=1)
+        classes = np.unique(y_to_integers)
         weights = class_weight.compute_class_weight(
             class_weight='balanced',
             classes=classes,
-            y=y_train
+            y=y_to_integers
         )
         return dict(zip(classes, weights))
 

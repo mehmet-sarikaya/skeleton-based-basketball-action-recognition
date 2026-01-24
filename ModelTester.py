@@ -15,6 +15,7 @@ class ModelTester:
 
         self.yolo_model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=app.fps)
+        self.model_path = None
 
         self.target_fps = app.fps
         self.win_len_sec = app.win_len_sec
@@ -31,8 +32,9 @@ class ModelTester:
 
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
 
-    def test_model_on_video(self, video_path: str):
+    def test_model_on_video(self, video_path: str, model_path:str):
         self.keypoints_buffer = deque(maxlen=self.max_len)
+        self.model_path = model_path
 
         self.video_processor.process_video_per_frame_at_constant_fps(
             video_path, frame_callback=self.collect_frames_and_test_model, show_frames=True)
@@ -68,7 +70,7 @@ class ModelTester:
 
     def recognize_activity(self):
         if self.basketball_model is None:
-            self.basketball_model = tf.keras.models.load_model("models/bball_gesture_pose_ba7c4445.keras")
+            self.basketball_model = tf.keras.models.load_model(self.model_path)
 
         self.buffer_counter += 1
 

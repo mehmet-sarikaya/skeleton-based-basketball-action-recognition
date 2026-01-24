@@ -54,7 +54,7 @@ class VideoProcessor:
                 cap.release()
                 cv.destroyAllWindows()
 
-    def process_video_per_frame_at_constant_fps(self, video_path: str, frame_callback, show_frames=False):
+    def process_video_per_frame_at_constant_fps(self, video_path: str, frame_callback, show_frames=False, verbose=True):
         if not os.path.isfile(video_path):
             raise FileNotFoundError(f"Video nicht gefunden: {video_path}")
 
@@ -71,8 +71,8 @@ class VideoProcessor:
                 f"Eingestellt: {self.target_fps} FPS\n"
                 f"Video-Limit: {original_fps} FPS"
             )
-
-        print(f"Original FPS: {original_fps:.2f} -> Target FPS: {self.target_fps}")
+        if verbose:
+            print(f"Original FPS: {original_fps:.2f} -> Target FPS: {self.target_fps}")
 
         target_interval = 1.0 / self.target_fps
         current_video_time = 0.0
@@ -100,7 +100,8 @@ class VideoProcessor:
 
         cap.release()
         cv.destroyAllWindows()
-        print("End of Video")
+        if verbose:
+            print("End of Video")
 
     def process_camera_per_frame_at_constant_fps(
             self,

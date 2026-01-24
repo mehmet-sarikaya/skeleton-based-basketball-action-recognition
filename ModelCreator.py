@@ -49,7 +49,7 @@ class ModelCreator:
             # 2. Sequence Learning (Temporal)
             # The Flattened output of the CNNs goes into the LSTM
             layers.LSTM(64, return_sequences=True),
-            layers.Dropout(0.1),
+            layers.Dropout(0.5),
             layers.LSTM(32),
 
             # 3. Classification
@@ -127,17 +127,17 @@ class ModelCreator:
         model.add(layers.Conv1D(filters=128, kernel_size=3, activation='relu', padding='same'))
         model.add(layers.BatchNormalization())
         # Wir lassen das zweite Pooling weg, um die Zeitauflösung für das LSTM hoch zu halten
-        model.add(layers.Dropout(0.1))
+        model.add(layers.Dropout(0.2))
 
         # 3. Sequenz-Verarbeitung (LSTM)
         # Erste LSTM: Lernt den Ablauf der Bewegung (Sequenz zu Sequenz)
         model.add(layers.LSTM(128, return_sequences=True))
-        model.add(layers.Dropout(0.1))
+        model.add(layers.Dropout(0.3))
 
         # Zweite LSTM: Aggregiert die Informationen über das gesamte Fenster
         # Wir reduzieren die Units von 256 auf 128, um Overfitting zu vermeiden
         model.add(layers.LSTM(128))
-        model.add(layers.Dropout(0.2))
+        model.add(layers.Dropout(0.4))
 
         # 4. Classification
         model.add(layers.Dense(64, activation='relu'))  # Zusätzlicher Dense-Layer für Abstraktion
