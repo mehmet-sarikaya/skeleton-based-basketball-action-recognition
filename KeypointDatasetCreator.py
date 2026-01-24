@@ -63,15 +63,23 @@ class KeypointDatasetCreator:
 
     def append_to_dict_single_video(self, path):
         filename = Path(path).stem
-        out_file_name = filename
+
+        try:
+            self.data_dict["y"].append(self.annotation_dict[filename])
+        except KeyError:
+            print(f"Video_id {filename} not found in annotation_dict")
+            self.keypoints_buffer = []
+            return
 
         self.data_dict["x"].append(self.keypoints_buffer)
-        self.data_dict["y"].append(self.annotation_dict[filename])
-        video_id = out_file_name.split("_")[0]
-        self.data_dict["video_id"].append(video_id)
-        self.data_dict["is_original_data"].append("flipped" in out_file_name)
-
         self.keypoints_buffer = []
+
+        video_id = filename.split("_")[0]
+        self.data_dict["video_id"].append(video_id)
+
+        self.data_dict["is_original_data"].append("flipped" in filename)
+
+
 
     def save_complete_dataset(self, output_path="dataset_all.npz"):
         x_array = np.array(self.data_dict["x"], dtype="float32")
