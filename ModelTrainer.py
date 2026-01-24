@@ -3,7 +3,8 @@ from sklearn.utils import class_weight
 from ModelCreator import ModelCreator
 from keras.optimizers import Adam
 from KeypointDatasetProcessor import KeypointDatasetProcessor
-from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold, train_test_split
+from sklearn.model_selection import (LeaveOneGroupOut, GroupKFold, KFold, StratifiedGroupKFold, train_test_split,
+                                     GroupShuffleSplit)
 from keras.callbacks import EarlyStopping, Callback, TensorBoard, ReduceLROnPlateau
 from keras.utils import to_categorical
 import numpy as np
@@ -143,6 +144,17 @@ class ModelTrainer:
 
         print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
         self.train_base(train_idx, test_idx)
+
+    def train_model_group_shuffle_split(self, n_splits=1, test_size=0.2):
+        """Klassischer Split: Mischt alle Fenster zufällig."""
+        self.check_label_distribution()
+        # self.balance_data(max_samples_per_class=2000)
+
+        gss = GroupShuffleSplit(n_splits=1, random_state=self.random_state)
+
+        for train_idx, test_idx in gss.split(X=self.x, y=self.y, groups=self.video_id):
+            print(f"\n--- Group Shuffle Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
+            self.train_base(train_idx, test_idx)
 
     def evaluate_model(self, model, x, y_true):
         y_pred_probs = model.predict(x)

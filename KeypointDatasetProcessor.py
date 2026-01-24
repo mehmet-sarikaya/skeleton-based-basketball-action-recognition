@@ -34,6 +34,7 @@ class KeypointDatasetProcessor:
         self.augmenter = Augmenter(self.fps)
 
     def load_dataset(self, path, smooth_data=False):
+        path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
             self.x = data["x"]
             self.y = data["y"]

@@ -54,7 +54,7 @@ class BasketballGestureRecognitionApp:
         self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos)
 
     def load_dataset_and_train(self):
-        self.keypt_processor.load_dataset(self.path_to_videos)
+        self.keypt_processor.load_dataset(".")
         # self.keypt_processor.print_data_after_preparation()
         self.model_trainer = ModelTrainer(
             model_creator=self.model_creator,
@@ -71,7 +71,10 @@ class BasketballGestureRecognitionApp:
         # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
-        self.model_trainer.train_model_sklearn_simple(test_size=0.2)
+        # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
+
+        self.model_trainer.train_model_group_shuffle_split(test_size=0.2, n_splits=1)
+
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
     def test_model(self, model_path):
@@ -93,7 +96,7 @@ if __name__ == "__main__":
         lr=0.01,
         patience=20,
         path_to_videos="space_jam/examples")
-    app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
+    # app.create_dataset_from_videos()
+    app.load_dataset_and_train()
     # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
 
