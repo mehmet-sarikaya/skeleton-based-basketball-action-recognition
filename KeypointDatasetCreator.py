@@ -9,7 +9,7 @@ import json
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo26n-pose.pt")
+        self.model = YOLO("yolov/yolo26l-pose.pt")
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
@@ -96,8 +96,7 @@ class KeypointDatasetCreator:
             self.keypoints_buffer = []
             return
 
-        unified_buffer = self.get_padded_buffer
-        self.data_dict["x"].append(unified_buffer)
+        self.data_dict["x"].append(self.keypoints_buffer)
         self.keypoints_buffer = []
 
         video_id = filename.split("_")[0]
@@ -106,13 +105,13 @@ class KeypointDatasetCreator:
         self.data_dict["is_original_data"].append("flipped" not in filename)
 
     def get_padded_buffer(self):
-        # Handle length to ensure exactly 15 frames
-        if len(self.keypoints_buffer) > 15:
-            # Truncate: take the first 15 frames
-            processed_buffer = self.keypoints_buffer[:15]
-        elif len(self.keypoints_buffer) < 15:
-            # Padding: fill with zeros if shorter than 15
-            padding_size = 15 - len(self.keypoints_buffer)
+        # Handle length to ensure exactly 16 frames
+        if len(self.keypoints_buffer) > 16:
+            # Truncate: take the first 16 frames
+            processed_buffer = self.keypoints_buffer[:16]
+        elif len(self.keypoints_buffer) < 16:
+            # Padding: fill with zeros if shorter than 16
+            padding_size = 16 - len(self.keypoints_buffer)
             padding = [np.zeros((12, 3)) for _ in range(padding_size)]
             processed_buffer = self.keypoints_buffer + padding
         else:
