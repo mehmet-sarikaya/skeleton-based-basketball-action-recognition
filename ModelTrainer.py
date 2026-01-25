@@ -447,7 +447,7 @@ class BestValLossCallback(Callback):
             self.best_epoch = current_epoch_to_disp
 
             print(f"New best val_loss after {epoch_diff} epochs!")
-            print(f"Old val_loss : {last_val_loss:.4f  in epoch} {epoch_last_best_val_loss}")
+            print(f"Old val_loss : {last_val_loss:.4f} in epoch {epoch_last_best_val_loss}")
             print(f"New val_loss : {current_val_loss:.4f} in epoch {current_epoch_to_disp}")
             print(f"Difference in loss: {(current_val_loss - last_val_loss):.4f}")
         else:

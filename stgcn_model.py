@@ -1,7 +1,7 @@
 import tensorflow as tf
 from stgcn_graph import Graph
 
-REGULARIZER = tf.keras.regularizers.l2(l=1e-4)
+REGULARIZER = tf.keras.regularizers.l2(l2=1e-4)
 INITIALIZER = tf.keras.initializers.VarianceScaling(
     scale=2.0, mode="fan_out", distribution="truncated_normal"
 )

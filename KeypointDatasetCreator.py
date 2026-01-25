@@ -9,7 +9,7 @@ import json
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo26x-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.model = YOLO("yolov/yolo26n-pose.pt")
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
