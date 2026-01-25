@@ -34,37 +34,38 @@ class KeypointDatasetCreator:
             self.keypoints_buffer.append(np.zeros((12, 3)))
             return
 
-        # print(result)
-
-        # Find the index of the person closest to the center
-        # result.boxes.xyxyn contains normalized [xmin, ymin, xmax, ymax]
         boxes = result.boxes.xyxyn.cpu().numpy()
 
+        # --- größte Box wählen ---
         best_idx = 0
         if len(boxes) > 1:
-            max_area = -1.0
-            for i, box in enumerate(boxes):
-                # Fläche berechnen: (xmax - xmin) * (ymax - ymin)
-                width = box[2] - box[0]
-                height = box[3] - box[1]
-                area = width * height
+            areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+            best_idx = np.argmax(areas)
 
-                if area > max_area:
-                    max_area = area
-                    best_idx = i
+        # --- Bounding Box ---
+        x_min, y_min, x_max, y_max = boxes[best_idx]
+        box_w = x_max - x_min
+        box_h = y_max - y_min
 
-        if result.boxes.id is not None:
-            track_id = int(result.boxes.id[best_idx].item())
-            # print(f"Tracking ID in center: {track_id}")
-        else:
-            # print("No Tracker ID assigned yet.")
-            pass
+        # Sicherheitscheck (sollte selten passieren)
+        if box_w < 1e-6 or box_h < 1e-6:
+            self.keypoints_buffer.append(np.zeros((12, 3)))
+            return
 
-        coords = result.keypoints.xyn[best_idx][5:].cpu().numpy()
-        conf = result.keypoints.conf[best_idx][5:].cpu().numpy()
-        conf = conf.reshape(-1, 1)
+        # --- Keypoints (bildnormalisiert) ---
+        coords = result.keypoints.xyn[best_idx][5:].cpu().numpy()  # (12, 2)
+        conf = result.keypoints.conf[best_idx][5:].cpu().numpy().reshape(-1, 1)
 
-        combined = np.concatenate([coords, conf], axis=1)
+        # --- Bounding-Box-Normalisierung ---
+        coords_rel = np.empty_like(coords)
+        coords_rel[:, 0] = (coords[:, 0] - x_min) / box_w
+        coords_rel[:, 1] = (coords[:, 1] - y_min) / box_h
+
+        # Optional: clamp gegen numerische Ausreißer
+        coords_rel = np.clip(coords_rel, 0.0, 1.0)
+
+        # --- (x_rel, y_rel, conf) ---
+        combined = np.concatenate([coords_rel, conf], axis=1)
 
         self.keypoints_buffer.append(combined)
 
