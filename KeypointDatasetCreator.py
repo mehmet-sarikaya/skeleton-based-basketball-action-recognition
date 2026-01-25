@@ -1,4 +1,6 @@
 import os.path
+from collections import defaultdict
+
 from VideoProcessor import VideoProcessor
 from ultralytics import YOLO
 import numpy as np
@@ -9,7 +11,7 @@ import json
 class KeypointDatasetCreator:
     def __init__(self, target_fps):
         self.keypoints_buffer = []
-        self.model = YOLO("yolov/yolo26l-pose.pt")
+        self.model = YOLO("yolov/yolo26x-pose.pt")
         self.video_processor = VideoProcessor(target_fps=target_fps)
         self.target_fps = target_fps
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
@@ -69,7 +71,7 @@ class KeypointDatasetCreator:
 
         self.keypoints_buffer.append(combined)
 
-    def create_keypoints_dataset(self, path):
+    def create_keypoints_dataset(self, path, filter_videos=False):
         print(f"Processing {path}")
         path = Path(path)
 
@@ -79,6 +81,14 @@ class KeypointDatasetCreator:
             f for f in path.iterdir()
             if f.suffix.lower() in self.allowed_video_formats
         ]
+
+        if filter_videos:
+            video_files = self.filter_video_files(
+                video_files,
+                self.annotation_dict,
+                exclude_flipped=True,  # oder False
+                max_per_label=1000  # oder None
+            )
 
         for video_path in tqdm(video_files, desc=f"Folder: {path.name}", unit="file", leave=False):
             self.extract_keypoints_one_person_single_video(str(video_path))
@@ -155,10 +165,34 @@ class KeypointDatasetCreator:
 
         self.keypoints_buffer = []
 
+    def filter_video_files(
+            self,
+            video_files,
+            annotation_dict,
+            exclude_flipped: bool = True,
+            max_per_label: int | None = None
+    ):
+        label_counts = defaultdict(int)
+        filtered = []
 
-def fix_flipped_logic(file_path):
-    with np.load(file_path, allow_pickle=True) as data:
-        new_data = {key: data[key] for key in data.files}
-        new_data["is_original_data"] = np.logical_not(new_data["is_original_data"])
+        for vp in video_files:
+            name = vp.stem
 
-    np.savez(file_path, **new_data)
+            # Option 1: flipped ausschließen
+            if exclude_flipped and "_flipped" in name:
+                continue
+
+            # Label aus Annotation Dict
+            label = annotation_dict.get(name)
+            if label is None:
+                continue
+
+            # Option 2: max Samples pro Label
+            if max_per_label is not None:
+                if label_counts[label] >= max_per_label:
+                    continue
+                label_counts[label] += 1
+
+            filtered.append(vp)
+
+        return filtered

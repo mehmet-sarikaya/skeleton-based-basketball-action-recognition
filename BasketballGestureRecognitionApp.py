@@ -51,7 +51,7 @@ class BasketballGestureRecognitionApp:
         )
 
     def create_dataset_from_videos(self):
-        self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos)
+        self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos, filter_videos=False)
 
     def load_dataset_and_train(self):
         self.keypt_processor.load_dataset(".")
