@@ -35,17 +35,19 @@ class ModelTrainer:
 
         self.label_id_dic = label_id_dic
 
-    def train_base(self, train_idx, test_idx, merge_classes=False):
-        self.check_label_distribution()
-
+    def train_base(self, train_idx, test_idx, merge_classes=False, test_clean_augmented=False):
         if merge_classes:
             self.apply_new_grouping()
 
         x_train = self.x[train_idx]
         y_train = to_categorical(self.y[train_idx], num_classes=self.num_classes)
 
-        x_test = self.x[test_idx][self.is_original_data[test_idx]]
-        y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=self.num_classes)
+        if test_clean_augmented:
+            x_test = self.x[test_idx][self.is_original_data[test_idx]]
+            y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=self.num_classes)
+        else:
+            x_test = self.x[test_idx]
+            y_test = to_categorical(self.y[test_idx], num_classes=self.num_classes)
 
         # create new model each time
         model = self.model_creator.create_model()
@@ -83,12 +85,15 @@ class ModelTrainer:
             x_train, y_train,
             test_size=0.2,
             random_state=self.random_state,
-            shuffle=True,
-            stratify=np.argmax(y_train, axis=1)  # Sorgt für gleiche Klassenverteilung
+            stratify=y_train,
+            shuffle=True
         )
 
-
         class_weight = self.compute_class_weights(y_t)
+
+        self.check_label_distribution(y_t, "Training")
+        self.check_label_distribution(y_val, "Validation")
+        self.check_label_distribution(y_test, "Test")
 
         model.fit(x_t,
                   y_t,
@@ -97,7 +102,7 @@ class ModelTrainer:
                   validation_data=(x_val, y_val),
                   class_weight=class_weight,
                   verbose=1,
-                  callbacks=[es, best_val_loss, tboard, reduce_lr])
+                  callbacks=[es, best_val_loss, tboard])
 
         self.evaluate_model(model, x_test, y_test)
 
@@ -139,6 +144,7 @@ class ModelTrainer:
             indices,
             test_size=test_size,
             shuffle=True,
+            stratify=self.y,
             random_state=self.random_state
         )
 
@@ -150,7 +156,7 @@ class ModelTrainer:
         self.check_label_distribution()
         # self.balance_data(max_samples_per_class=2000)
 
-        gss = GroupShuffleSplit(n_splits=1, random_state=self.random_state)
+        gss = GroupShuffleSplit(n_splits=1, random_state=self.random_state, test_size=test_size)
 
         for train_idx, test_idx in gss.split(X=self.x, y=self.y, groups=self.video_id):
             print(f"\n--- Group Shuffle Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
@@ -225,24 +231,40 @@ class ModelTrainer:
             3: "Shooting"
         }
 
-    def check_label_distribution(self):
-        """Gibt die Anzahl der Samples pro Klasse aus."""
-        # IDs und deren Häufigkeit zählen
-        unique, counts = np.unique(self.y, return_counts=True)
+    def check_label_distribution(self, y=None, title="Alle Daten"):
+        """
+        Benötigt:
+        - y (Optional): NumPy-Array mit Labels. Falls None, wird self.y verwendet.
+        - self.label_id_dic: Dictionary {id: name}.
+        - title (Optional): Ein String für die Kopfzeile.
+        """
+        if title:
+            print(f"\n{title} Labels:")
+
+        y_to_process = y if y is not None else self.y
+
+        y_working = np.array(y_to_process)
+
+        if y_working.ndim > 1 and y_working.shape[1] > 1:
+            y_labels = np.argmax(y_working, axis=1)
+        else:
+            y_labels = y_working
+
+        unique, counts = np.unique(y_labels, return_counts=True)
         counts_dict = dict(zip(unique, counts))
 
         print(f"{'ID':<5} | {'Label Name':<20} | {'Anzahl':<10} | {'Anteil':<10}")
         print("-" * 55)
 
-        total = len(self.y)
+        total = len(y_labels)
         for label_id in sorted(self.label_id_dic.keys()):
             count = counts_dict.get(label_id, 0)
             name = self.label_id_dic[label_id]
-            percentage = (count / total) * 100
+            percentage = (count / total) * 100 if total > 0 else 0
             print(f"{label_id:<5} | {name:<20} | {count:<10} | {percentage:>6.2f}%")
 
         print("-" * 55)
-        print(f"Gesamtanzahl Samples: {total}")
+        print(f"Gesamtanzahl Samples: {total}\n")
 
     def balance_data(self, max_samples_per_class=5000):
         """
@@ -360,11 +382,22 @@ class ModelTrainer:
 
 
 class BestValLossCallback(Callback):
+    def __init__(self):
+        super().__init__()
+        self.best_val_loss = float('inf')
+        self.best_epoch = 0
+
     def on_epoch_end(self, epoch, logs=None):
-        val_losses = self.model.history.history.get("val_loss", None)
-        if val_losses is None:
-            print("No validation loss recorded.")
+        # Nimm den aktuellen val_loss aus den logs dieser Epoche
+        current_val_loss = logs.get("val_loss")
+
+        if current_val_loss is None:
             return
-        best_epoch = int(np.argmin(val_losses)) + 1
-        best_val_loss = float(np.min(val_losses))
-        print(f"\nBest val_loss = {best_val_loss:.6f} at epoch {best_epoch}")
+
+        # Vergleiche mit dem bisherigen Bestwert
+        if current_val_loss < self.best_val_loss:
+            self.best_val_loss = current_val_loss
+            self.best_epoch = epoch + 1
+
+        print(f"\n[Callback] Current val_loss: {current_val_loss:.6f}")
+        print(f"[Callback] Best so far: {self.best_val_loss:.6f} at epoch {self.best_epoch}")

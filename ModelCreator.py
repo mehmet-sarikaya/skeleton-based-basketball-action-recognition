@@ -11,7 +11,7 @@ class ModelCreator:
         self.duration_sec = win_len_sec
         self.fps = fps
         # 1.number of frames per window, 2. Keypoints per frame, 3.X/Y Coordinates, 4.Only 1 Channel (NO RGB)
-        self.input_shape = (int(win_len_sec * fps), 12, 2, 1)
+        self.input_shape = (int(win_len_sec * fps), 12, 3, 1)
         self.num_classes = num_classes
 
         self.model_name = model_name

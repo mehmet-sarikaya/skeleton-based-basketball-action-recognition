@@ -86,17 +86,17 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="cnn_lstm",
+        model_name="gcn",
         n_splits=2,
         fps=10,
-        win_len_sec=1.5,
+        win_len_sec=1.6,
         stride_len_sec=1.5,
         num_classes=10,
         batch_size=64,
-        lr=0.01,
+        lr=0.0001,
         patience=20,
         path_to_videos="space_jam/examples")
-    app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
+    # app.create_dataset_from_videos()
+    app.load_dataset_and_train()
     # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
 

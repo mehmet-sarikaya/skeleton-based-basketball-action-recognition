@@ -37,7 +37,7 @@ class KeypointDatasetProcessor:
         path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
             print(data)
-            self.x = data["X"]
+            self.x = data["x"]
             self.y = data["y"]
             try:
                 self.video_id = data["video_id"]

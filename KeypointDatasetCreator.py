@@ -95,15 +95,29 @@ class KeypointDatasetCreator:
             self.keypoints_buffer = []
             return
 
-        self.data_dict["x"].append(self.keypoints_buffer)
+        unified_buffer = self.get_padded_buffer
+        self.data_dict["x"].append(unified_buffer)
         self.keypoints_buffer = []
 
         video_id = filename.split("_")[0]
         self.data_dict["video_id"].append(video_id)
 
-        self.data_dict["is_original_data"].append("flipped" in filename)
+        self.data_dict["is_original_data"].append("flipped" not in filename)
 
+    def get_padded_buffer(self):
+        # Handle length to ensure exactly 15 frames
+        if len(self.keypoints_buffer) > 15:
+            # Truncate: take the first 15 frames
+            processed_buffer = self.keypoints_buffer[:15]
+        elif len(self.keypoints_buffer) < 15:
+            # Padding: fill with zeros if shorter than 15
+            padding_size = 15 - len(self.keypoints_buffer)
+            padding = [np.zeros((12, 3)) for _ in range(padding_size)]
+            processed_buffer = self.keypoints_buffer + padding
+        else:
+            processed_buffer = self.keypoints_buffer
 
+        return processed_buffer
 
     def save_complete_dataset(self, output_path="dataset_all.npz"):
         x_array = np.array(self.data_dict["x"], dtype="float32")
@@ -140,3 +154,11 @@ class KeypointDatasetCreator:
         np.savez_compressed(os.path.join(folder_path, out_file_name), data=self.keypoints_buffer)
 
         self.keypoints_buffer = []
+
+
+def fix_flipped_logic(file_path):
+    with np.load(file_path, allow_pickle=True) as data:
+        new_data = {key: data[key] for key in data.files}
+        new_data["is_original_data"] = np.logical_not(new_data["is_original_data"])
+
+    np.savez(file_path, **new_data)
