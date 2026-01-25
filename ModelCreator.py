@@ -3,6 +3,7 @@ from tensorflow.keras import models,layers
 from keras.layers import Dense, Dropout, BatchNormalization, Conv1D, MaxPooling1D, LSTM, TimeDistributed, Reshape, Flatten
 
 from Graph_Model_Creator import build_stgcn_12kp
+from stgcn_model import STGCNClassifier
 
 
 class ModelCreator:
@@ -19,12 +20,14 @@ class ModelCreator:
         self.model_func_dic = {
             "conv2d": self.create_conv2d_lstm_model,
             "conv2d_s": self.create_small_conv2d_lstm_model,
+            "cnn_bilstm": self.create_cnn_bilstm_model,
             "cnn_lstm": self.create_cnn_lstm_model,
             "ind_4": self.create_industry_4_model,
             "small_cnn": self.create_small_robust_cnn,
             "small_cnn_lstm": self.create_small_robust_cnn_lstm,
             "bilstm": self.create_short_sequence_model,
-            "gcn": self.create_gcn_model
+            "gcn": self.create_gcn_model,
+            "gcn_paper": self.create_gcn_model_from_paper
         }
 
     def create_model(self):
@@ -143,6 +146,51 @@ class ModelCreator:
         model.add(layers.Dense(64, activation='relu'))  # Zusätzlicher Dense-Layer für Abstraktion
         model.add(layers.Dense(self.num_classes, activation='softmax'))
 
+        return model
+
+    def create_cnn_bilstm_model(self):
+        # Erwarteter Input: (16, 12, 3)
+        # Falls (16, 12, 3, 1) reinkommt, fängt das Input-Layer das ab
+        inp = layers.Input(shape=self.input_shape)
+
+        # Sicherheitshalber: Falls eine 4. Dimension (z.B. 1) dabei ist, entfernen
+        # Wir wollen (Batch, Time, Points, Channels) -> (None, 16, 12, 3)
+        if len(inp.shape) == 5:
+            x = layers.Reshape((16, 12, 3))(inp)
+        else:
+            x = inp
+
+        # 1) Spatial Teil: Wir behandeln jeden Frame wie ein 1D-Signal
+        x = layers.TimeDistributed(
+            layers.Conv1D(64, kernel_size=3, padding="same", activation="relu")
+        )(x)
+        x = layers.TimeDistributed(layers.BatchNormalization())(x)
+
+        # Jetzt sollte x (None, 16, 12, 64) sein.
+        # TimeDistributed reicht (12, 64) an MaxPooling1D weiter -> das ist 3D (inkl. Batch), passt!
+        x = layers.TimeDistributed(layers.MaxPooling1D(pool_size=2))(x)
+
+        x = layers.TimeDistributed(
+            layers.Conv1D(128, kernel_size=3, padding="same", activation="relu")
+        )(x)
+        x = layers.TimeDistributed(layers.BatchNormalization())(x)
+
+        # Reduziere die 12 (bzw. 6 nach Pooling) Punkte auf einen Feature-Vektor pro Frame
+        x = layers.TimeDistributed(layers.GlobalAveragePooling1D())(x)
+
+        # 2) Temporal Teil (Bidirectional LSTM)
+        # x ist hier (None, 16, 128)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        x = layers.Dropout(0.4)(x)
+        x = layers.Bidirectional(layers.LSTM(64))(x)
+        x = layers.Dropout(0.4)(x)
+
+        # 3) Klassifikation
+        x = layers.Dense(64, activation="relu")(x)
+        x = layers.Dropout(0.4)(x)
+        out = layers.Dense(self.num_classes, activation="softmax")(x)
+
+        model = models.Model(inp, out)
         return model
 
     def create_short_sequence_model(self):
@@ -276,3 +324,26 @@ class ModelCreator:
             (7, 9), (9, 11),
         ]
         return build_stgcn_12kp(self.input_shape, self.num_classes, EDGES_12, temporal_kernel=9)
+
+    def create_gcn_model_from_paper(self):
+        EDGES_12 = [
+            (0, 1),
+            (0, 2), (2, 4),
+            (1, 3), (3, 5),
+            (0, 6), (1, 7),
+            (6, 7),
+            (6, 8), (8, 10),
+            (7, 9), (9, 11),
+        ]
+
+        model = STGCNClassifier(
+            num_classes=self.num_classes,
+            num_nodes=12,
+            edges=EDGES_12,
+            in_channels=3
+        )
+
+        # Modell „bauen“ mit Dummy-Forward, damit summary/load_weights sauber ist
+        dummy = tf.zeros((1, 3, 16, 12, 1), dtype=tf.float32)  # (N,C,T,V,M)
+        _ = model(dummy, training=False)
+        return model

@@ -51,45 +51,48 @@ class KeypointDatasetProcessor:
 
         print(f"Daten geladen: {self.x.shape}")
 
+
+
         if smooth_data:
             for i in range(len(self.x)):
                 self.x[i] = self.smooth_and_centre_data(self.x[i])
 
-    def smooth_and_centre_data(self, sequence, center_data=False):
-        # 1. Sicherstellen, dass es ein NumPy Array ist
+    def smooth_and_centre_data(self, sequence, center_data=True):
         sequence = np.array(sequence)
 
-        # Falls sequence (15, 12, 2, 1) ist, auf (15, 12, 2) bringen
         if sequence.ndim == 4:
             sequence = np.squeeze(sequence, axis=-1)
 
-        # 2. Zeitliche Glättung
-        sequence = uniform_filter1d(sequence, size=3, axis=0)
+        # Nur X und Y glätten (Index 0 und 1 auf der letzten Achse)
+        # sequence[..., :2] wählt alle Frames und Joints, aber nur x, y
+        sequence[..., :2] = uniform_filter1d(sequence[..., :2], size=3, axis=0)
 
         if not center_data:
             return sequence
 
         # 3. Relative Zentrierung auf die Hüft-Mitte
         for i in range(len(sequence)):
-            # Wir erzwingen hier (12, 2), falls noch eine Dimension dran klebt
-            frame_coords = sequence[i].reshape(12, 2)
+            # Wir arbeiten jetzt mit (12, 3) -> x, y, conf
+            frame_data = sequence[i]
 
-            hip_l = frame_coords[6]
-            hip_r = frame_coords[7]
+            # Hüft-Koordinaten nur von X und Y (Index 0 und 1)
+            hip_l = frame_data[6, :2]
+            hip_r = frame_data[7, :2]
 
+            # Prüfen, ob Hüft-Punkte vorhanden sind (Confidence > 0 ist hier meist sicherer als != 0)
             if not (np.all(hip_l == 0) and np.all(hip_r == 0)):
                 center = (hip_l + hip_r) / 2
 
-                # Maske: Welche der 12 Gelenke sind erkannt worden?
-                # mask.shape wird (12,)
-                mask = np.any(frame_coords != 0, axis=1)
+                # Maske: Nur Gelenke zentrieren, die tatsächlich x,y Daten haben
+                # Wir prüfen hier nur die ersten zwei Spalten
+                mask = np.any(frame_data[:, :2] != 0, axis=1)
 
-                # Der eigentliche Fix:
-                # Wir subtrahieren den Center-Punkt nur von den validen Gelenken
-                frame_coords[mask] = frame_coords[mask] - center
+                # Der Fix für 3 Achsen:
+                # Wir subtrahieren 'center' NUR von den ersten zwei Spalten der maskierten Gelenke
+                frame_data[mask, :2] = frame_data[mask, :2] - center
 
-                # Zurückschreiben in die sequence
-                sequence[i] = frame_coords
+                # Zurückschreiben in die sequence (Index 2/Confidence bleibt original)
+                sequence[i] = frame_data
 
         return sequence
 

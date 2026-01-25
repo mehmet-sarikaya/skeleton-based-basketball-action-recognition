@@ -139,7 +139,7 @@ def build_stgcn_12kp(input_shape, num_classes, edges, temporal_kernel=9):
     x = layers.Lambda(lambda z: tf.reduce_mean(z, axis=[1, 2]), name="global_avg_pool")(x)
 
     x = layers.Dense(128, activation="relu")(x)
-    x = layers.Dropout(0.5)(x)
+    x = layers.Dropout(0.4)(x)
     out = layers.Dense(num_classes, activation="softmax", name="softmax")(x)
 
     return models.Model(inputs=x_in, outputs=out, name="STGCN_12KP")

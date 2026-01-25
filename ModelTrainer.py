@@ -9,8 +9,8 @@ from keras.callbacks import EarlyStopping, Callback, TensorBoard, ReduceLROnPlat
 from keras.utils import to_categorical
 import numpy as np
 import uuid
-import os
 import datetime
+import tensorflow as tf
 
 #evaluation
 from sklearn import metrics
@@ -53,10 +53,25 @@ class ModelTrainer:
         model = self.model_creator.create_model()
 
         optimizer = Adam(learning_rate=self.lr)
+        metrics_list = ["accuracy"]
 
         # Compile the model
-        model.compile(optimizer=optimizer, loss='categorical_crossentropy')
 
+        if self.model_creator.model_name == "gcn_paper":
+            model.compile(optimizer=optimizer,
+                          loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                          metrics=metrics_list)
+        else:
+            model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=metrics_list)
+
+        groups_train = self.video_id[train_idx]
+        gss_val = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=self.random_state)
+        idx_t, idx_val = next(gss_val.split(x_train, y_train, groups=groups_train))
+
+        x_t, y_t = x_train[idx_t], y_train[idx_t]
+        x_val, y_val = x_train[idx_val], y_train[idx_val]
+
+        # Callbacks and class weight
         es = EarlyStopping(
             monitor="val_loss",
             min_delta=0.01,
@@ -68,39 +83,38 @@ class ModelTrainer:
             start_from_epoch=0,
         )
         best_val_loss = BestValLossCallback()
-
         log_run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         log_dir = "logs"
-
         tboard = TensorBoard(
             log_dir=log_dir,
             histogram_freq=1,  # Records weights distribution every epoch
             write_graph=True,  # Visualizes the model architecture
             update_freq='epoch'  # How often to write logs
         )
+        reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.35), factor=0.7, min_lr=self.lr / 10, verbose=1)
+        class_weights = self.compute_class_weights(y_t)
 
-        reduce_lr = ReduceLROnPlateau(patience=int(self.patience*0.35), factor=0.7, min_lr=self.lr/10, verbose=1)
-
-        x_t, x_val, y_t, y_val = train_test_split(
-            x_train, y_train,
-            test_size=0.2,
-            random_state=self.random_state,
-            stratify=y_train,
-            shuffle=True
-        )
-
-        class_weight = self.compute_class_weights(y_t)
+        # End of Callbacks and Weights
 
         self.check_label_distribution(y_t, "Training")
         self.check_label_distribution(y_val, "Validation")
         self.check_label_distribution(y_test, "Test")
+
+        if self.model_creator.model_name == "gcn_paper":
+            x_t = to_stgcn_input(x_t)
+            x_val = to_stgcn_input(x_val)
+            x_test = to_stgcn_input(x_test)
+
+        print("x_t:", x_t.shape, x_t.dtype)
+        print("y_t:", y_t.shape, y_t.dtype)
+        print("unique y_t (first 20):", np.unique(y_t[:20]) if y_t.ndim == 1 else "one-hot?")
 
         model.fit(x_t,
                   y_t,
                   epochs=1000,
                   batch_size=self.batch_size,
                   validation_data=(x_val, y_val),
-                  class_weight=class_weight,
+                  class_weight=class_weights,
                   verbose=1,
                   callbacks=[es, best_val_loss, tboard])
 
@@ -163,8 +177,16 @@ class ModelTrainer:
             self.train_base(train_idx, test_idx)
 
     def evaluate_model(self, model, x, y_true):
-        y_pred_probs = model.predict(x)
-        y_pred = np.argmax(y_pred_probs, axis=-1)
+        if self.model_creator.model_name == "gcn_paper":
+            # ST-GCN gibt LOGITS zurück
+            logits = model.predict(x, verbose=0)  # (N, num_classes)
+            y_pred_probs = tf.nn.softmax(logits, axis=-1).numpy()
+            y_pred = np.argmax(y_pred_probs, axis=-1)
+
+        else:
+            # Alle anderen Modelle geben Softmax-Wahrscheinlichkeiten zurück
+            y_pred_probs = model.predict(x, verbose=0)
+            y_pred = np.argmax(y_pred_probs, axis=-1)
 
         y_true = np.asarray(y_true)
         y_true = np.argmax(y_true, axis=-1)
@@ -230,6 +252,9 @@ class ModelTrainer:
             2: "Passing",
             3: "Shooting"
         }
+
+        self.num_classes = 4
+        self.model_creator.num_classes = 4
 
     def check_label_distribution(self, y=None, title="Alle Daten"):
         """
@@ -380,6 +405,15 @@ class ModelTrainer:
         print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
         self.train_xgb(train_idx, test_idx)
 
+def to_stgcn_input(x):
+    """
+    x: (N, T, V, C) = (batch, 16, 12, 3)
+    returns: (N, C, T, V, 1)
+    """
+    x = tf.convert_to_tensor(x, dtype=tf.float32)   # (N,T,V,C)
+    x = tf.transpose(x, [0, 3, 1, 2])               # (N,C,T,V)
+    x = tf.expand_dims(x, axis=-1)                  # (N,C,T,V,1)
+    return x
 
 class BestValLossCallback(Callback):
     def __init__(self):
@@ -387,17 +421,36 @@ class BestValLossCallback(Callback):
         self.best_val_loss = float('inf')
         self.best_epoch = 0
 
+    def on_epoch_begin(self, epoch, logs=None):
+        print("\n \n")
+
     def on_epoch_end(self, epoch, logs=None):
+        current_epoch_to_disp = epoch + 1
+        print("\n")
+        print("[BestValLossCallback]")
+        print(f"Epoch {current_epoch_to_disp}")
+
         # Nimm den aktuellen val_loss aus den logs dieser Epoche
         current_val_loss = logs.get("val_loss")
 
         if current_val_loss is None:
             return
 
+        epoch_diff = current_epoch_to_disp - self.best_epoch
+
         # Vergleiche mit dem bisherigen Bestwert
         if current_val_loss < self.best_val_loss:
-            self.best_val_loss = current_val_loss
-            self.best_epoch = epoch + 1
+            last_val_loss = self.best_val_loss
+            epoch_last_best_val_loss = self.best_epoch
 
-        print(f"\n[Callback] Current val_loss: {current_val_loss:.6f}")
-        print(f"[Callback] Best so far: {self.best_val_loss:.6f} at epoch {self.best_epoch}")
+            self.best_val_loss = current_val_loss
+            self.best_epoch = current_epoch_to_disp
+
+            print(f"New best val_loss after {epoch_diff} epochs!")
+            print(f"Old val_loss : {last_val_loss:.4f  in epoch} {epoch_last_best_val_loss}")
+            print(f"New val_loss : {current_val_loss:.4f} in epoch {current_epoch_to_disp}")
+            print(f"Difference in loss: {(current_val_loss - last_val_loss):.4f}")
+        else:
+            print(f"No improvement since {epoch_diff} epochs")
+            print(f"Best so far:      {self.best_val_loss:.4f} in epoch {self.best_epoch}")
+            print(f"Current val_loss: {current_val_loss:.4f} in epoch {current_epoch_to_disp}")

@@ -73,7 +73,7 @@ class BasketballGestureRecognitionApp:
 
         # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
 
-        self.model_trainer.train_model_group_shuffle_split(test_size=0.2, n_splits=1)
+        self.model_trainer.train_model_group_shuffle_split(test_size=0.1, n_splits=1)
 
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
@@ -86,7 +86,7 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="gcn",
+        model_name="cnn_bilstm",
         n_splits=2,
         fps=10,
         win_len_sec=1.6,
