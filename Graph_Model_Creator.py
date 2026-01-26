@@ -104,14 +104,17 @@ class STGCNBlock(layers.Layer):
         return y
 
 
-def build_stgcn_12kp(input_shape, num_classes, edges, temporal_kernel=9):
+def build_stgcn_12kp(input_shape, num_classes, edges, temporal_kernel=9, include_conf=True):
     """
     input_shape: (T, 12, 2, 1) exactly like your models
     edges: list of undirected edges over your 12 keypoints (index pairs)
     """
     T, V, XYZ, CH = input_shape
     assert V == 12, "Expected 12 keypoints"
-    assert XYZ == 3, "Expected (x,y,conf)"
+    if include_conf:
+        assert XYZ == 3, "Expected (x,y,conf)"
+    else:
+        assert XYZ == 2, "Expected (x,y)"
     assert CH == 1, "Expected channel=1"
 
     # Build adjacency A [V,V] from edges

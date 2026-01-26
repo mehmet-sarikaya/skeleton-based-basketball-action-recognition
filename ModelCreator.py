@@ -7,12 +7,18 @@ from stgcn_model import STGCNClassifier
 
 
 class ModelCreator:
-    def __init__(self, model_name, win_len_sec, fps, num_classes):
+    def __init__(self, model_name, win_len_sec, fps, num_classes, include_conf=True):
         self.model = None
         self.duration_sec = win_len_sec
         self.fps = fps
         # 1.number of frames per window, 2. Keypoints per frame, 3.X/Y Coordinates, 4.Only 1 Channel (NO RGB)
-        self.input_shape = (int(win_len_sec * fps), 12, 3, 1)
+
+        self.include_conf = include_conf
+        if include_conf:
+            self.input_shape = (int(win_len_sec * fps), 12, 3, 1)
+        else:
+            self.input_shape = (int(win_len_sec * fps), 12, 2, 1)
+
         self.num_classes = num_classes
 
         self.model_name = model_name
@@ -323,7 +329,8 @@ class ModelCreator:
             (6, 8), (8, 10),
             (7, 9), (9, 11),
         ]
-        return build_stgcn_12kp(self.input_shape, self.num_classes, EDGES_12, temporal_kernel=9)
+        return build_stgcn_12kp(self.input_shape, self.num_classes, EDGES_12, temporal_kernel=9,
+                                include_conf=self.include_conf)
 
     def create_gcn_model_from_paper(self):
         EDGES_12 = [
@@ -340,10 +347,15 @@ class ModelCreator:
             num_classes=self.num_classes,
             num_nodes=12,
             edges=EDGES_12,
-            in_channels=3
+            in_channels=3 if self.include_conf else 2
         )
 
-        # Modell „bauen“ mit Dummy-Forward, damit summary/load_weights sauber ist
-        dummy = tf.zeros((1, 3, 16, 12, 1), dtype=tf.float32)  # (N,C,T,V,M)
-        _ = model(dummy, training=False)
+        if self.include_conf:
+            # Modell „bauen“ mit Dummy-Forward, damit summary/load_weights sauber ist
+            dummy = tf.zeros((1, 3, 16, 12, 1), dtype=tf.float32)  # (N,C,T,V,M)
+            _ = model(dummy, training=False)
+        else:
+            # Modell „bauen“ mit Dummy-Forward, damit summary/load_weights sauber ist
+            dummy = tf.zeros((1, 2, 16, 12, 1), dtype=tf.float32)  # (N,C,T,V,M)
+            _ = model(dummy, training=False)
         return model

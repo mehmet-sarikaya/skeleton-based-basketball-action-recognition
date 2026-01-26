@@ -33,7 +33,7 @@ class KeypointDatasetProcessor:
 
         self.augmenter = Augmenter(self.fps)
 
-    def load_dataset(self, path, smooth_data=False):
+    def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data = True):
         path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
             print(data)
@@ -51,11 +51,40 @@ class KeypointDatasetProcessor:
 
         print(f"Daten geladen: {self.x.shape}")
 
-
+        if not include_conf:
+            self.drop_confidence_axis()
 
         if smooth_data:
             for i in range(len(self.x)):
                 self.x[i] = self.smooth_and_centre_data(self.x[i])
+
+        if augment_data:
+            self.augment_data()
+
+    def augment_data(self):
+        X_aug = []
+        y_aug = []
+        vid_aug = []
+        orig_aug = []
+
+        for i in tqdm(range(len(self.x)), desc="Augmenting windows", unit="window"):
+            window = self.x[i]  # (T,12,F)
+            aug_windows = self.augmenter.augment_window(window)
+
+            for w in aug_windows:
+                X_aug.append(w)
+                y_aug.append(self.y[i])
+                vid_aug.append(self.video_id[i])
+                orig_aug.append(False)
+
+        # Original + Augmented zusammenführen
+        self.x = np.concatenate([self.x, np.asarray(X_aug, dtype=self.x.dtype)], axis=0)
+        self.y = np.concatenate([self.y, np.asarray(y_aug, dtype=self.y.dtype)], axis=0)
+        self.video_id = np.concatenate([self.video_id, np.asarray(vid_aug, dtype=self.video_id.dtype)], axis=0)
+        self.is_original_data = np.concatenate(
+            [self.is_original_data, np.asarray(orig_aug, dtype=bool)],
+            axis=0
+        )
 
     def smooth_and_centre_data(self, sequence, center_data=True):
         sequence = np.array(sequence)
@@ -95,6 +124,21 @@ class KeypointDatasetProcessor:
                 sequence[i] = frame_data
 
         return sequence
+
+    def drop_confidence_axis(self):
+        """
+        Entfernt die Confidence-Achse (letzte Dimension), falls gewünscht.
+
+        Erwartete Shapes:
+        - (N, T, 12, 3) -> (N, T, 12, 2)
+        - (T, 12, 3)    -> (T, 12, 2)
+        """
+        self.x = np.array(self.x)
+
+        if self.x.shape[-1] != 3:
+            raise ValueError(f"Expected last dimension == 3, got {self.x.shape}")
+
+        self.x = self.x[..., :2]
 
     # for own created dataset old
     #

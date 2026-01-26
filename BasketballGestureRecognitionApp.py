@@ -6,7 +6,7 @@ from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
     def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos,
-                 batch_size=64, lr=0.0001, patience=20):
+                 include_conf, batch_size=64, lr=0.0001, patience=20):
         self.fps = fps
         self.win_len_sec = win_len_sec
         self.stride_len_sec = stride_len_sec
@@ -18,6 +18,8 @@ class BasketballGestureRecognitionApp:
         self.batch_size = batch_size
         self.lr = lr
         self.patience = patience
+
+        self.include_conf = include_conf
 
         self.label_id_dic_old = {
             "dribbling": 0,
@@ -44,7 +46,8 @@ class BasketballGestureRecognitionApp:
             model_name=self.model_name,
             win_len_sec=self.win_len_sec,
             fps=self.fps,
-            num_classes=self.num_classes)
+            num_classes=self.num_classes,
+            include_conf=include_conf)
         self.model_trainer = None
         self.model_tester = ModelTester(
             app=self
@@ -54,7 +57,7 @@ class BasketballGestureRecognitionApp:
         self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos, filter_videos=False)
 
     def load_dataset_and_train(self):
-        self.keypt_processor.load_dataset(".")
+        self.keypt_processor.load_dataset(".", include_conf=self.include_conf)
         # self.keypt_processor.print_data_after_preparation()
         self.model_trainer = ModelTrainer(
             model_creator=self.model_creator,
@@ -86,17 +89,17 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="cnn_bilstm",
+        model_name="gcn",
         n_splits=2,
         fps=10,
         win_len_sec=1.6,
-        stride_len_sec=1.5,
+        stride_len_sec=1.6,
         num_classes=10,
         batch_size=64,
         lr=0.0001,
         patience=20,
+        include_conf=False,
         path_to_videos="space_jam/examples")
-    app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
+    # app.create_dataset_from_videos()
+    app.load_dataset_and_train()
     # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
-
