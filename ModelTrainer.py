@@ -35,19 +35,17 @@ class ModelTrainer:
 
         self.label_id_dic = label_id_dic
 
-    def train_base(self, train_idx, test_idx, merge_classes=False, test_clean_augmented=False):
+    def train_base(self, train_idx, test_idx, merge_classes=False, remove_aug_data_val_test=True):
         if merge_classes:
             self.apply_new_grouping()
 
         x_train = self.x[train_idx]
         y_train = to_categorical(self.y[train_idx], num_classes=self.num_classes)
 
-        if test_clean_augmented:
-            x_test = self.x[test_idx][self.is_original_data[test_idx]]
-            y_test = to_categorical(self.y[test_idx][self.is_original_data[test_idx]], num_classes=self.num_classes)
-        else:
-            x_test = self.x[test_idx]
-            y_test = to_categorical(self.y[test_idx], num_classes=self.num_classes)
+        # Test erst später bauen (nach optionaler Bereinigung über Indizes)
+        test_idx_clean = test_idx
+        if remove_aug_data_val_test:
+            test_idx_clean = test_idx_clean[self.is_original_data[test_idx_clean]]
 
         # create new model each time
         model = self.model_creator.create_model()
@@ -68,10 +66,26 @@ class ModelTrainer:
         gss_val = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=self.random_state)
         idx_t, idx_val = next(gss_val.split(x_train, y_train, groups=groups_train))
 
-        x_t, y_t = x_train[idx_t], y_train[idx_t]
-        x_val, y_val = x_train[idx_val], y_train[idx_val]
+        # globale Indizes (wichtig für is_original_data)
+        train_idx_t_global = train_idx[idx_t]
+        train_idx_val_global = train_idx[idx_val]
 
-        # Callbacks and class weight
+        # Val bereinigen: nur Originaldaten
+        if remove_aug_data_val_test:
+            train_idx_val_global = train_idx_val_global[self.is_original_data[train_idx_val_global]]
+
+        # Jetzt final arrays bauen
+        x_t = self.x[train_idx_t_global]
+        y_t = to_categorical(self.y[train_idx_t_global], num_classes=self.num_classes)
+
+        x_val = self.x[train_idx_val_global]
+        y_val = to_categorical(self.y[train_idx_val_global], num_classes=self.num_classes)
+
+        # Test final bauen (optional bereinigt)
+        x_test = self.x[test_idx_clean]
+        y_test = to_categorical(self.y[test_idx_clean], num_classes=self.num_classes)
+
+        # Callbacks and class weight ########################################################################
         es = EarlyStopping(
             monitor="val_loss",
             min_delta=0.01,
@@ -94,7 +108,7 @@ class ModelTrainer:
         reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.35), factor=0.7, min_lr=self.lr / 10, verbose=1)
         class_weights = self.compute_class_weights(y_t)
 
-        # End of Callbacks and Weights
+        # End of Callbacks and Weights ##########################################
 
         self.check_label_distribution(y_t, "Training")
         self.check_label_distribution(y_val, "Validation")
@@ -121,9 +135,13 @@ class ModelTrainer:
         self.evaluate_model(model, x_test, y_test)
 
         model_id = str(uuid.uuid4())[:8]
-        model_name = f"bball_gesture_pose_{model_id}.keras"
-        model.save(f"models/{model_name}")
-        print(f"saved model at {model_name}")
+        model_name = f"bball_gesture_pose_{model_id}"
+        model_ending = ".keras"
+        try:
+            model.save(f"models/{model_name+model_ending}")
+            print(f"saved model at {model_name}")
+        except (NotImplementedError, ValueError, TypeError) as e:
+            model.save_weights(f"models/{model_name}.weights.h5")
 
     def train_model_loso(self):
         logo = LeaveOneGroupOut()
@@ -165,10 +183,12 @@ class ModelTrainer:
         print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
         self.train_base(train_idx, test_idx)
 
-    def train_model_group_shuffle_split(self, n_splits=1, test_size=0.2):
+    def train_model_group_shuffle_split(self, n_splits=1, test_size=0.2, balance_data=False):
         """Klassischer Split: Mischt alle Fenster zufällig."""
         self.check_label_distribution()
-        # self.balance_data(max_samples_per_class=2000)
+        if balance_data:
+            self.balance_data(max_samples_per_class=3500)
+        self.check_label_distribution()
 
         gss = GroupShuffleSplit(n_splits=1, random_state=self.random_state, test_size=test_size)
 
@@ -299,19 +319,31 @@ class ModelTrainer:
         unique_classes = np.unique(self.y)
         indices_to_keep = []
 
+        np.random.seed(self.random_state)
+
         for c in unique_classes:
             class_indices = np.where(self.y == c)[0]
-            if len(class_indices) > max_samples_per_class:
-                # Zufällige Auswahl ohne Zurücklegen
-                keep = np.random.choice(class_indices, max_samples_per_class, replace=False)
-                indices_to_keep.extend(keep)
-            else:
-                # Wenn Klasse kleiner als das Limit ist, behalte alle Samples
-                indices_to_keep.extend(class_indices)
 
-        # Indices in ein Numpy-Array umwandeln und mischen
+            # Split: Original vs Augmented (Augmented soll zuerst rausfliegen)
+            orig_idx = class_indices[self.is_original_data[class_indices]]
+            aug_idx = class_indices[~self.is_original_data[class_indices]]
+
+            if len(class_indices) > max_samples_per_class:
+                n_keep = max_samples_per_class
+
+                # Erst Augmented löschen: Originals bevorzugt behalten
+                if len(orig_idx) >= n_keep:
+                    keep = np.random.choice(orig_idx, n_keep, replace=False)
+                else:
+                    n_missing = n_keep - len(orig_idx)
+                    keep_aug = np.random.choice(aug_idx, n_missing, replace=False)
+                    keep = np.concatenate([orig_idx, keep_aug])
+
+                indices_to_keep.extend(keep.tolist())
+            else:
+                indices_to_keep.extend(class_indices.tolist())
+
         indices_to_keep = np.array(indices_to_keep)
-        np.random.seed(self.random_state)  # Für Reproduzierbarkeit
         np.random.shuffle(indices_to_keep)
 
         # Alle Datenfelder synchron mit den neuen Indices überschreiben

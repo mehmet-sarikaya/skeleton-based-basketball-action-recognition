@@ -6,10 +6,11 @@ from Augmenter import Augmenter
 import json
 from tqdm import tqdm
 from scipy.ndimage import uniform_filter1d
+from collections import Counter
 
 
 class KeypointDatasetProcessor:
-    def __init__(self, fps, label_id_dic):
+    def __init__(self, fps, label_id_dic, random_state):
         # chosen dynamically
         self.current_label_keypoints_per_video = None
         self.win_len_sec = None
@@ -31,7 +32,7 @@ class KeypointDatasetProcessor:
         self.allowed_datatypes = [".npy", ".npz"]
         self.fps = fps
 
-        self.augmenter = Augmenter(self.fps)
+        self.augmenter = Augmenter(self.fps, random_state)
 
     def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data = True):
         path = Path(path) / "dataset_all.npz"
@@ -61,30 +62,34 @@ class KeypointDatasetProcessor:
         if augment_data:
             self.augment_data()
 
-    def augment_data(self):
-        X_aug = []
-        y_aug = []
-        vid_aug = []
-        orig_aug = []
+    def augment_data(self, min_count=1500, only_minor_classes=False):
+        counts = Counter(self.y.tolist())
+        under = {c for c, n in counts.items() if n < min_count}
 
-        for i in tqdm(range(len(self.x)), desc="Augmenting windows", unit="window"):
-            window = self.x[i]  # (T,12,F)
-            aug_windows = self.augmenter.augment_window(window)
+        if only_minor_classes:
+            idx_under = np.flatnonzero(np.isin(self.y, list(under)))  # only underrepresented
+        else:
+            idx_under = np.arange(len(self.y))  # augment all samples
 
-            for w in aug_windows:
-                X_aug.append(w)
-                y_aug.append(self.y[i])
+        X_aug, y_aug, vid_aug, orig_aug = [], [], [], []
+
+        desc = "Augment underrepresented" if only_minor_classes else "Augment all"
+        for i in tqdm(idx_under, desc=desc, unit="window"):
+            label = int(self.y[i])
+
+            for w in self.augmenter.augment_window(self.x[i]):
+                X_aug.append(np.asarray(w, dtype=self.x.dtype))
+                y_aug.append(label)
                 vid_aug.append(self.video_id[i])
                 orig_aug.append(False)
 
-        # Original + Augmented zusammenführen
-        self.x = np.concatenate([self.x, np.asarray(X_aug, dtype=self.x.dtype)], axis=0)
+        if not X_aug:
+            return
+
+        self.x = np.concatenate([self.x, np.stack(X_aug, axis=0)], axis=0)
         self.y = np.concatenate([self.y, np.asarray(y_aug, dtype=self.y.dtype)], axis=0)
         self.video_id = np.concatenate([self.video_id, np.asarray(vid_aug, dtype=self.video_id.dtype)], axis=0)
-        self.is_original_data = np.concatenate(
-            [self.is_original_data, np.asarray(orig_aug, dtype=bool)],
-            axis=0
-        )
+        self.is_original_data = np.concatenate([self.is_original_data, np.asarray(orig_aug, dtype=bool)], axis=0)
 
     def smooth_and_centre_data(self, sequence, center_data=True):
         sequence = np.array(sequence)

@@ -64,7 +64,27 @@ class ModelTester:
         # and without head joints
         single_person_coordinates = xyn[0][5:].cpu().numpy()
 
-        self.keypoints_buffer.append(single_person_coordinates)
+        boxes = result.boxes.xyxyn.cpu().numpy()
+
+
+        # --- Bounding Box ---
+        x_min, y_min, x_max, y_max = boxes[0]
+        box_w = x_max - x_min
+        box_h = y_max - y_min
+
+        # --- Keypoints (bildnormalisiert) ---
+        coords = result.keypoints.xyn[0][5:].cpu().numpy()  # (12, 2)
+        conf = result.keypoints.conf[0][5:].cpu().numpy().reshape(-1, 1)
+
+        # --- Bounding-Box-Normalisierung ---
+        coords_rel = np.empty_like(coords)
+        coords_rel[:, 0] = (coords[:, 0] - x_min) / box_w
+        coords_rel[:, 1] = (coords[:, 1] - y_min) / box_h
+
+        # Optional: clamp gegen numerische Ausreißer
+        coords_rel = np.clip(coords_rel, 0.0, 1.0)
+
+        self.keypoints_buffer.append(coords_rel)
 
         self.recognize_activity()
 

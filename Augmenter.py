@@ -3,12 +3,13 @@ from scipy.interpolate import interp1d
 
 
 class Augmenter:
-    def __init__(self, fps, target_len=16, max_shift=5, speed_range=(0.85, 1.15), pad_value=0.0):
+    def __init__(self, fps, random_state, target_len=16, max_shift=5, speed_range=(0.85, 1.15), pad_value=0.0):
         self.fps = fps
         self.target_len = target_len
         self.max_shift = max_shift
         self.speed_range = speed_range
         self.pad_value = pad_value
+        np.random.seed(random_state)
 
     def augment_window(self, window):
         window = np.asarray(window)

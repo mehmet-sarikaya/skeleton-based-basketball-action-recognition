@@ -33,7 +33,8 @@ class ModelCreator:
             "small_cnn_lstm": self.create_small_robust_cnn_lstm,
             "bilstm": self.create_short_sequence_model,
             "gcn": self.create_gcn_model,
-            "gcn_paper": self.create_gcn_model_from_paper
+            "gcn_paper": self.create_gcn_model_from_paper,
+            "tcn": self.create_tcn_attention_model
         }
 
     def create_model(self):
@@ -318,6 +319,74 @@ class ModelCreator:
             ]
         )
         return self.model
+
+    def create_tcn_attention_model(self):
+        """
+        input_shape: (T, 12, 2, 1)
+        num_classes: int
+        Output: softmax probs (N, num_classes)
+        """
+
+        inp = layers.Input(shape=self.input_shape)  # (T, V, 2, 1)
+
+        # (T, 12, 2, 1) -> (T, 24)
+        x = layers.Reshape((self.input_shape[0], self.input_shape[1] * self.input_shape[2]))(inp)
+
+        # Optional: normalize features per batch
+        x = layers.LayerNormalization()(x)
+
+        # --- TCN Block 1 (dilation=1) ---
+        y = layers.Conv1D(64, kernel_size=3, padding="same", dilation_rate=1, activation="relu")(x)
+        y = layers.BatchNormalization()(y)
+        y = layers.Dropout(0.2)(y)
+        y = layers.Conv1D(64, kernel_size=3, padding="same", dilation_rate=1, activation="relu")(y)
+        y = layers.BatchNormalization()(y)
+
+        # Residual projection if needed
+        if x.shape[-1] != y.shape[-1]:
+            x_res = layers.Conv1D(64, kernel_size=1, padding="same")(x)
+        else:
+            x_res = x
+        x = layers.Add()([x_res, y])
+        x = layers.Activation("relu")(x)
+
+        # --- TCN Block 2 (dilation=2) ---
+        y = layers.Conv1D(96, kernel_size=3, padding="same", dilation_rate=2, activation="relu")(x)
+        y = layers.BatchNormalization()(y)
+        y = layers.Dropout(0.25)(y)
+        y = layers.Conv1D(96, kernel_size=3, padding="same", dilation_rate=2, activation="relu")(y)
+        y = layers.BatchNormalization()(y)
+
+        x_res = layers.Conv1D(96, kernel_size=1, padding="same")(x)
+        x = layers.Add()([x_res, y])
+        x = layers.Activation("relu")(x)
+
+        # --- TCN Block 3 (dilation=4) ---
+        y = layers.Conv1D(128, kernel_size=3, padding="same", dilation_rate=4, activation="relu")(x)
+        y = layers.BatchNormalization()(y)
+        y = layers.Dropout(0.3)(y)
+        y = layers.Conv1D(128, kernel_size=3, padding="same", dilation_rate=4, activation="relu")(y)
+        y = layers.BatchNormalization()(y)
+
+        x_res = layers.Conv1D(128, kernel_size=1, padding="same")(x)
+        x = layers.Add()([x_res, y])
+        x = layers.Activation("relu")(x)
+
+        # --- Attention Pooling over time ---
+        # Compute attention weights (T,1), softmax over time, then weighted sum
+        attn = layers.Dense(1)(x)  # (T,1)
+        attn = layers.Softmax(axis=1)(attn)  # normalize over time
+        x = layers.Multiply()([x, attn])  # (T,128)
+        x = layers.Lambda(lambda t: tf.reduce_sum(t, axis=1))(x)  # (128,)
+
+        # Classifier head
+        x = layers.Dropout(0.4)(x)
+        x = layers.Dense(96, activation="relu")(x)
+        x = layers.Dropout(0.4)(x)
+        out = layers.Dense(self.num_classes, activation="softmax")(x)
+
+        model = models.Model(inp, out, name="TCN_Attention_12KP")
+        return model
 
     def create_gcn_model(self):
         EDGES_12 = [

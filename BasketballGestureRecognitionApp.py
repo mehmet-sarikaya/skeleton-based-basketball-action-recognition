@@ -19,6 +19,8 @@ class BasketballGestureRecognitionApp:
         self.lr = lr
         self.patience = patience
 
+        self.random_state = 25
+
         self.include_conf = include_conf
 
         self.label_id_dic_old = {
@@ -40,7 +42,8 @@ class BasketballGestureRecognitionApp:
                              }
         # 10: discard
 
-        self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic, fps=self.fps)
+        self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic, fps=self.fps,
+                                                        random_state=self.random_state)
         self.model_name = model_name
         self.model_creator = ModelCreator(
             model_name=self.model_name,
@@ -63,7 +66,7 @@ class BasketballGestureRecognitionApp:
             model_creator=self.model_creator,
             keypt_processor=self.keypt_processor,
             label_id_dic=self.label_id_dic,
-            random_state=25,
+            random_state=self.random_state,
             batch_size=self.batch_size,
             lr=self.lr,
             patience=self.patience,
@@ -89,7 +92,7 @@ class BasketballGestureRecognitionApp:
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="gcn",
+        model_name="tcn",
         n_splits=2,
         fps=10,
         win_len_sec=1.6,
@@ -101,5 +104,5 @@ if __name__ == "__main__":
         include_conf=False,
         path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()
-    app.load_dataset_and_train()
-    # app.test_model("models/bball_gesture_pose_8ac559eb.keras")
+    # app.load_dataset_and_train()
+    # app.test_model("models/bball_gesture_pose_7d35d102.keras")
