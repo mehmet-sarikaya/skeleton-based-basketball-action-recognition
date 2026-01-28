@@ -109,7 +109,7 @@ class VideoProcessor:
         # available_ports, working_ports = self.list_ports()
         # camera_id = working_ports[0]
         # camera_id = 0
-        camera_id = "http://134.103.169.216:8080/video"
+        camera_id = "http://134.103.92.227:8080/video"
         cap = cv.VideoCapture(camera_id)
 
         if not cap.isOpened():

@@ -18,6 +18,7 @@ import pandas as pd
 from sklearn import metrics
 import matplotlib.pyplot as plt
 import xgboost as xgb
+import platform
 
 class ModelTrainer:
     def __init__(self, model_creator: ModelCreator, keypt_processor: KeypointDatasetProcessor, label_id_dic,
@@ -237,7 +238,13 @@ class ModelTrainer:
         fig, ax = plt.subplots(figsize=(8, 6))
         cm_display.plot(ax=ax, cmap=plt.cm.Blues, values_format="d")
         plt.title("Confusion Matrix (LOSO Fold)")
-        plt.show()
+        os_name = platform.system()
+        if os_name == "Windows":
+            plt.show()
+        elif os_name == "Linux":
+            print("Not showing plot since you're on BwUniCluster 3.0 probably")
+        elif os_name == "Darwin":
+            print("You are on macOS?! How?")
 
         report_str = metrics.classification_report(
             y_true,
@@ -484,6 +491,7 @@ class ModelTrainer:
         cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_names)
 
         fig, ax = plt.subplots(figsize=(8, 6))
+
         cm_display.plot(ax=ax, cmap=plt.cm.Greens)
         plt.title("Confusion Matrix (XGBoost)")
         plt.show()
