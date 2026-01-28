@@ -108,5 +108,5 @@ if __name__ == "__main__":
         include_conf=False,
         path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()
-    # app.load_dataset_and_train()
-    app.test_model("models/bball_gesture_pose_7d35d102.keras")
+    app.load_dataset_and_train()
+    # app.test_model("models/bball_gesture_pose_7d35d102.keras")

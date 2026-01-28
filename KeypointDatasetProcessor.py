@@ -1,4 +1,5 @@
 import os
+import random
 from pathlib import Path
 import numpy as np
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -37,7 +38,8 @@ class KeypointDatasetProcessor:
         self.augmenter = Augmenter(self.fps, random_state)
         self.animator = SkeletonAnimator()
 
-    def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data=True):
+    def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data=True,
+                     visualize_augmentation=False):
         path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
             print(data)
@@ -54,6 +56,9 @@ class KeypointDatasetProcessor:
                 self.is_original_data = data["is_original"]
 
         print(f"Daten geladen: {self.x.shape}")
+
+        if visualize_augmentation:
+            self.visualize_augmentation(10)
 
         if not include_conf:
             self.drop_confidence_axis()
@@ -147,6 +152,30 @@ class KeypointDatasetProcessor:
             raise ValueError(f"Expected last dimension == 3, got {self.x.shape}")
 
         self.x = self.x[..., :2]
+
+    def visualize_augmentation(self, index, max_aug=None):
+        """
+        Zeigt Original und danach augmentierte Fenster (die aus augment_window entstehen).
+        """
+        base = self.x[index].copy()
+        label = int(self.y[index])
+
+        experiment_no = random.randint(0,10000)
+
+        self.visualize_window(base, title=f"BASE idx={index} y={label}")
+        self.animator.save(f"skeleton_animation/base_{experiment_no}.gif", self.fps)
+
+        aug_windows = list(self.augmenter.augment_window(base))
+        if max_aug is not None:
+            aug_windows = aug_windows[:max_aug]
+
+        for k, w in enumerate(aug_windows):
+            self.visualize_window(w, title=f"AUG {k + 1}/{len(aug_windows)} from idx={index} y={label}")
+            self.animator.save(f"skeleton_animation/animation_{experiment_no}_{k+1}.gif", self.fps)
+
+    def visualize_window(self, seq, title=""):
+        """Hilfsfunktion: animiert ein beliebiges Fenster."""
+        self.animator.animate(seq, title=title)
 
     # for own created dataset old
     #

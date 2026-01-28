@@ -214,10 +214,23 @@ class SkeletonAnimator:
     def save(self, filepath, fps=None, dpi=120):
         """
         Speichert die zuletzt erstellte Animation als GIF/MP4.
-        Hinweis: MP4 braucht ffmpeg, GIF braucht pillow.
         """
         if self._anim is None:
             raise RuntimeError("No animation to save. Call animate(...) first.")
         if fps is None:
             fps = max(1, int(1000 / self.interval_ms))
-        self._anim.save(filepath, fps=fps, dpi=dpi)
+
+        ext = filepath.lower().split(".")[-1]
+
+        if ext == "mp4":
+            from matplotlib.animation import FFMpegWriter
+            writer = FFMpegWriter(fps=fps, bitrate=1800)
+            self._anim.save(filepath, writer=writer, dpi=dpi)
+
+        elif ext == "gif":
+            from matplotlib.animation import PillowWriter
+            writer = PillowWriter(fps=fps)
+            self._anim.save(filepath, writer=writer, dpi=dpi)
+
+        else:
+            raise ValueError(f"Unsupported file extension: .{ext}")

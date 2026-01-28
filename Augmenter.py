@@ -3,7 +3,7 @@ from scipy.interpolate import interp1d
 
 
 class Augmenter:
-    def __init__(self, fps, random_state, target_len=16, max_shift=5, speed_range=(0.85, 1.15), pad_value=0.0):
+    def __init__(self, fps, random_state, target_len=16, max_shift=6, speed_range=(0.75, 1.25), pad_value=0.0):
         self.fps = fps
         self.target_len = target_len
         self.max_shift = max_shift
@@ -16,12 +16,17 @@ class Augmenter:
         assert window.shape[0] == self.target_len, f"expected T={self.target_len}, got {window.shape[0]}"
 
         out = []
-        # out.append(self.switch_left_and_right_window(window))
+
+        out.append(self.switch_left_and_right_window(window))
         out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
-        out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
-        out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
-        #out.append(self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value))
+        # out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
+        # out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
+        time_scaled = self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value)
+        out.append(time_scaled)
         # out.append(self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value))
+        out.append(self.jitter_pose_noise(window, sigma=0.015))
+        switched_and_time_stretched = self.switch_left_and_right_window(time_scaled.copy())
+        out.append(switched_and_time_stretched)
         return out
 
     # -------------------------
@@ -94,3 +99,36 @@ class Augmenter:
 
         data[:, 0] = 1.0 - data[:, 0]  # mirror x
         return data
+
+    def jitter_pose_noise(self, window, sigma=0.01):
+        """
+        Jittering für bounding-box-normalisierte Skeletons (x,y in [0,1]).
+
+        - Fügt gaußsches Rauschen auf x,y hinzu
+        - Punkte die (0,0) sind (Padding/Missing) bleiben unverändert
+        - Clipping auf [0,1]
+        """
+
+        window = np.asarray(window).astype(np.float32)
+        out = window.copy()
+
+        T, K, F = out.shape
+
+        # gültige Punkte (nicht beide 0)
+        valid = np.any(out[..., :2] != 0.0, axis=2)  # (T, K)
+
+        if not np.any(valid):
+            return out
+
+        # Noise nur für x,y
+        noise = np.random.normal(loc=0.0, scale=sigma, size=(T, K, 2)).astype(np.float32)
+
+        # Anwenden nur auf valide Punkte
+        mask = valid[..., None]
+        out[..., :2] = np.where(mask, out[..., :2] + noise, out[..., :2])
+
+        # Clipping auf [0,1]
+        out[..., 0] = np.clip(out[..., 0], 0.0, 1.0)
+        out[..., 1] = np.clip(out[..., 1], 0.0, 1.0)
+
+        return out
