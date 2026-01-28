@@ -169,8 +169,8 @@ class KeypointDatasetCreator:
             self,
             video_files,
             annotation_dict,
+            max_per_label,
             exclude_flipped: bool = True,
-            max_per_label: int | None = None
     ):
         label_counts = defaultdict(int)
         filtered = []

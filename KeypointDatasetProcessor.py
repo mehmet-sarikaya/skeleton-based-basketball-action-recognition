@@ -8,6 +8,8 @@ from tqdm import tqdm
 from scipy.ndimage import uniform_filter1d
 from collections import Counter
 
+from SkeletonAnimator import SkeletonAnimator
+
 
 class KeypointDatasetProcessor:
     def __init__(self, fps, label_id_dic, random_state):
@@ -33,8 +35,9 @@ class KeypointDatasetProcessor:
         self.fps = fps
 
         self.augmenter = Augmenter(self.fps, random_state)
+        self.animator = SkeletonAnimator()
 
-    def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data = True):
+    def load_dataset(self, path, smooth_data=False, include_conf=False, augment_data=True):
         path = Path(path) / "dataset_all.npz"
         with np.load(path, allow_pickle=True) as data:
             print(data)
@@ -62,7 +65,7 @@ class KeypointDatasetProcessor:
         if augment_data:
             self.augment_data()
 
-    def augment_data(self, min_count=1500, only_minor_classes=False):
+    def augment_data(self, min_count=5000, only_minor_classes=True):
         counts = Counter(self.y.tolist())
         under = {c for c, n in counts.items() if n < min_count}
 
@@ -91,7 +94,7 @@ class KeypointDatasetProcessor:
         self.video_id = np.concatenate([self.video_id, np.asarray(vid_aug, dtype=self.video_id.dtype)], axis=0)
         self.is_original_data = np.concatenate([self.is_original_data, np.asarray(orig_aug, dtype=bool)], axis=0)
 
-    def smooth_and_centre_data(self, sequence, center_data=True):
+    def smooth_and_centre_data(self, sequence, center_data=False):
         sequence = np.array(sequence)
 
         if sequence.ndim == 4:

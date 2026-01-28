@@ -84,25 +84,29 @@ class BasketballGestureRecognitionApp:
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
     def test_model(self, model_path):
+        self.model_tester.test_model_on_camera(model_path=model_path)
+
         self.model_tester.test_model_on_video(
+            # video_path="videos/1080p_Mehmet_demo_video.mov",
             video_path="videos/1080p_Mehmet_demo_video.mov",
+            # video_path="videos/2v2.mov",
             model_path=model_path)
 
 
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="tcn",
+        model_name="gcn",
         n_splits=2,
         fps=10,
         win_len_sec=1.6,
         stride_len_sec=1.6,
         num_classes=10,
-        batch_size=64,
-        lr=0.0001,
-        patience=20,
+        batch_size=32,
+        lr=0.003,
+        patience=5,
         include_conf=False,
         path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()
     # app.load_dataset_and_train()
-    # app.test_model("models/bball_gesture_pose_7d35d102.keras")
+    app.test_model("models/bball_gesture_pose_7d35d102.keras")

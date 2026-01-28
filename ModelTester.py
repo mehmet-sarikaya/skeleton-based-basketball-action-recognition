@@ -13,7 +13,7 @@ class ModelTester:
         self.label_id_dic = app.label_id_dic
         self.id_to_label = {v: k for k, v in self.label_id_dic.items()}
 
-        self.yolo_model = YOLO("yolov/yolo26x-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.yolo_model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=app.fps)
         self.model_path = None
 
@@ -39,10 +39,13 @@ class ModelTester:
         self.video_processor.process_video_per_frame_at_constant_fps(
             video_path, frame_callback=self.collect_frames_and_test_model, show_frames=True)
 
-        """
+    def test_model_on_camera(self, model_path:str):
+        self.keypoints_buffer = deque(maxlen=self.max_len)
+        self.model_path = model_path
+
         self.video_processor.process_camera_per_frame_at_constant_fps(
             frame_callback=self.collect_frames_and_test_model, show_frames=True)
-        """
+
 
     def collect_frames_and_test_model(self, frame):
         # extract Keypoint Coordinates (returns just one result since one picture)
@@ -58,66 +61,110 @@ class ModelTester:
         if result is None or len(result.keypoints.xyn) == 0:
             return
 
-        xyn = result.keypoints.xyn  # normalized keypoints of all persons
+        boxes = result.boxes.xyxyn.cpu().numpy()  # (N, 4)
+        kps = result.keypoints.xyn.cpu().numpy()  # (N, K, 2)
 
-        # if multiple persons are there extract just from single person
-        # and without head joints
-        single_person_coordinates = xyn[0][5:].cpu().numpy()
+        # track ids (bei persist=True typischerweise vorhanden)
+        ids = None
+        if result.boxes.id is not None:
+            ids = result.boxes.id.cpu().numpy().astype(int)  # (N,)
+        else:
+            # fallback: wenn keine IDs da sind
+            ids = np.arange(len(boxes), dtype=int)
 
-        boxes = result.boxes.xyxyn.cpu().numpy()
+        for i in range(len(boxes)):
+            x_min, y_min, x_max, y_max = boxes[i]
+            box_w = x_max - x_min
+            box_h = y_max - y_min
+            if box_w <= 1e-6 or box_h <= 1e-6:
+                continue
 
+            # Keypoints ohne Kopf (ab Index 5)
+            coords = kps[i][5:]  # (12,2)
 
-        # --- Bounding Box ---
-        x_min, y_min, x_max, y_max = boxes[0]
-        box_w = x_max - x_min
-        box_h = y_max - y_min
+            coords_rel = np.empty_like(coords)
+            coords_rel[:, 0] = (coords[:, 0] - x_min) / box_w
+            coords_rel[:, 1] = (coords[:, 1] - y_min) / box_h
+            coords_rel = np.clip(coords_rel, 0.0, 1.0)
 
-        # --- Keypoints (bildnormalisiert) ---
-        coords = result.keypoints.xyn[0][5:].cpu().numpy()  # (12, 2)
-        conf = result.keypoints.conf[0][5:].cpu().numpy().reshape(-1, 1)
+            track_id = int(ids[i])
 
-        # --- Bounding-Box-Normalisierung ---
-        coords_rel = np.empty_like(coords)
-        coords_rel[:, 0] = (coords[:, 0] - x_min) / box_w
-        coords_rel[:, 1] = (coords[:, 1] - y_min) / box_h
+            # pro Person eigener Buffer
+            if not hasattr(self, "keypoints_buffers"):
+                self.keypoints_buffers = {}
+            if track_id not in self.keypoints_buffers:
+                self.keypoints_buffers[track_id] = deque(maxlen=self.max_len)
 
-        # Optional: clamp gegen numerische Ausreißer
-        coords_rel = np.clip(coords_rel, 0.0, 1.0)
+            self.keypoints_buffers[track_id].append(coords_rel)
 
-        self.keypoints_buffer.append(coords_rel)
+            # pro Person klassifizieren
+            self.recognize_activity(track_id)
 
-        self.recognize_activity()
-
-    def recognize_activity(self):
+    def recognize_activity(self, track_id: int):
         if self.basketball_model is None:
             self.basketball_model = tf.keras.models.load_model(self.model_path)
 
-        self.buffer_counter += 1
+        # pro Person eigener Counter (sonst "shared stride" über alle)
+        if not hasattr(self, "buffer_counters"):
+            self.buffer_counters = {}
+        if track_id not in self.buffer_counters:
+            self.buffer_counters[track_id] = 0
 
-        if len(self.keypoints_buffer) >= self.max_len and self.buffer_counter % self.stride_num_frames == 0:
-            self.buffer_counter = 0
-            window = np.asarray(self.keypoints_buffer, dtype=np.float32)
+        self.buffer_counters[track_id] += 1
+        kp_buf = self.keypoints_buffers[track_id]
+
+        if len(kp_buf) >= self.max_len and self.buffer_counters[track_id] % self.stride_num_frames == 0:
+            self.buffer_counters[track_id] = 0
+
+            window = np.asarray(kp_buf, dtype=np.float32)
             x = window[None, ..., None]
 
             probs = self.basketball_model.predict(x, verbose=0)
-            self.current_class_id = int(np.argmax(probs, axis=-1)[0])
-            self.pred_conf = float(np.max(probs))
 
-            predicted_label = self.label_id_dic[self.current_class_id]
-            print(f"Predicted Label: {predicted_label}, Confidence: {self.pred_conf} ")
+            # wenn du pro Person label/conf speichern willst:
+            if not hasattr(self, "current_class_id_by_id"):
+                self.current_class_id_by_id = {}
+                self.pred_conf_by_id = {}
 
-    def draw_classification(self,result, annotated_frame):
-        if result.boxes is not None and len(result.boxes) > 0:
-            # bei 1 Person einfach die erste Box
-            x1, y1, x2, y2 = result.boxes.xyxy[0].cpu().numpy().astype(int)
+            class_id = int(np.argmax(probs, axis=-1)[0])
+            conf = float(np.max(probs))
 
-            text = f"{self.label_id_dic[self.current_class_id]} ({self.pred_conf:.2f})"
+            self.current_class_id_by_id[track_id] = class_id
+            self.pred_conf_by_id[track_id] = conf
 
-            # 4) Text über der Box platzieren (mit kleiner Hintergrundbox für Lesbarkeit)
+            predicted_label = self.label_id_dic[class_id]
+            print(f"[id={track_id}] Predicted Label: {predicted_label}, Confidence: {conf}")
+
+    def draw_classification(self, result, annotated_frame):
+        if result.boxes is None or len(result.boxes) == 0:
+            return
+
+        boxes_xyxy = result.boxes.xyxy.cpu().numpy().astype(int)
+
+        # track ids
+        if result.boxes.id is not None:
+            ids = result.boxes.id.cpu().numpy().astype(int)
+        else:
+            ids = np.arange(len(boxes_xyxy), dtype=int)
+
+        for i, (x1, y1, x2, y2) in enumerate(boxes_xyxy):
+            track_id = int(ids[i])
+
+            # default falls noch keine Prediction für diese ID existiert
+            class_id = None
+            conf = 0.0
+
+            if hasattr(self, "current_class_id_by_id") and track_id in self.current_class_id_by_id:
+                class_id = self.current_class_id_by_id[track_id]
+                conf = float(self.pred_conf_by_id.get(track_id, 0.0))
+                label = self.label_id_dic[class_id]
+                text = f"{label} ({conf:.2f})"
+            else:
+                text = f"id={track_id} (...)"
+
             (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
             y_text = max(y1 - 10, th + 10)
 
-            # Hintergrund
             cv2.rectangle(
                 annotated_frame,
                 (x1, y_text - th - baseline),
@@ -126,7 +173,6 @@ class ModelTester:
                 thickness=-1
             )
 
-            # Text
             cv2.putText(
                 annotated_frame,
                 text,

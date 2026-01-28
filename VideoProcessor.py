@@ -55,8 +55,6 @@ class VideoProcessor:
                 cv.destroyAllWindows()
 
     def process_video_per_frame_at_constant_fps(self, video_path: str, frame_callback, show_frames=False, verbose=True):
-        if not os.path.isfile(video_path):
-            raise FileNotFoundError(f"Video nicht gefunden: {video_path}")
 
         cap = cv.VideoCapture(video_path)
         original_fps = math.ceil(cap.get(cv.CAP_PROP_FPS))
@@ -110,7 +108,8 @@ class VideoProcessor:
     ):
         # available_ports, working_ports = self.list_ports()
         # camera_id = working_ports[0]
-        camera_id = 0
+        # camera_id = 0
+        camera_id = "http://134.103.169.216:8080/video"
         cap = cv.VideoCapture(camera_id)
 
         if not cap.isOpened():

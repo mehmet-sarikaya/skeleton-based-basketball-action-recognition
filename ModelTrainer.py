@@ -10,7 +10,9 @@ from keras.utils import to_categorical
 import numpy as np
 import uuid
 import datetime
+import os
 import tensorflow as tf
+import pandas as pd
 
 #evaluation
 from sklearn import metrics
@@ -105,7 +107,7 @@ class ModelTrainer:
             write_graph=True,  # Visualizes the model architecture
             update_freq='epoch'  # How often to write logs
         )
-        reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.35), factor=0.7, min_lr=self.lr / 10, verbose=1)
+        reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.4), factor=0.5, min_lr=self.lr / 10, verbose=1)
         class_weights = self.compute_class_weights(y_t)
 
         # End of Callbacks and Weights ##########################################
@@ -130,13 +132,14 @@ class ModelTrainer:
                   validation_data=(x_val, y_val),
                   class_weight=class_weights,
                   verbose=1,
-                  callbacks=[es, best_val_loss, tboard])
-
-        self.evaluate_model(model, x_test, y_test)
+                  callbacks=[es, best_val_loss, tboard, reduce_lr])
 
         model_id = str(uuid.uuid4())[:8]
         model_name = f"bball_gesture_pose_{model_id}"
         model_ending = ".keras"
+
+        self.evaluate_model(model, x_test, y_test, model_name)
+
         try:
             model.save(f"models/{model_name+model_ending}")
             print(f"saved model at {model_name}")
@@ -196,7 +199,7 @@ class ModelTrainer:
             print(f"\n--- Group Shuffle Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
             self.train_base(train_idx, test_idx)
 
-    def evaluate_model(self, model, x, y_true):
+    def evaluate_model(self, model, x, y_true, save_name):
         if self.model_creator.model_name == "gcn_paper":
             # ST-GCN gibt LOGITS zurück
             logits = model.predict(x, verbose=0)  # (N, num_classes)
@@ -212,10 +215,8 @@ class ModelTrainer:
         y_true = np.argmax(y_true, axis=-1)
         y_pred = np.asarray(y_pred)
 
-        # label_id_dic is {id: name}
         all_label_ids = sorted(self.label_id_dic.keys())
 
-        # Keep only labels that actually occur in this fold (true OR predicted)
         present_ids = sorted(set(np.unique(y_true)).union(set(np.unique(y_pred))))
         labels_ids = [i for i in all_label_ids if i in present_ids]
         labels_names = [self.label_id_dic[i] for i in labels_ids]
@@ -232,13 +233,82 @@ class ModelTrainer:
         plt.title("Confusion Matrix (LOSO Fold)")
         plt.show()
 
-        print(metrics.classification_report(
+        report_str = metrics.classification_report(
             y_true,
             y_pred,
-            labels=labels_ids,  # IMPORTANT: match filtered ids
-            target_names=labels_names,  # aligned names
+            labels=labels_ids,
+            target_names=labels_names,
             zero_division=0
-        ))
+        )
+        print(report_str)
+
+        # 🔽 NEU: Ergebnisse speichern
+        self.save_evaluation_results(
+            cm=cm,
+            labels_names=labels_names,
+            y_true=y_true,
+            y_pred=y_pred,
+            save_name=save_name
+        )
+
+    def save_evaluation_results(
+            self,
+            cm,
+            labels_names,
+            y_true,
+            y_pred,
+            save_name
+    ):
+        model_dir_name = getattr(self.model_creator, "model_name", "unknown_model")
+        out_dir = os.path.join("evaluations", model_dir_name, str(save_name))
+        os.makedirs(out_dir, exist_ok=True)
+
+        # --- Confusion matrix plot speichern ---
+        fig, ax = plt.subplots(figsize=(8, 6))
+        disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_names)
+        disp.plot(ax=ax, cmap=plt.cm.Blues, values_format="d")
+        ax.set_title(f"Confusion Matrix ({save_name})")
+        fig.tight_layout()
+
+        cm_path = os.path.join(out_dir, "confusion_matrix.png")
+        fig.savefig(cm_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+        # --- Confusion matrix als Array speichern ---
+        np.save(os.path.join(out_dir, "confusion_matrix.npy"), cm)
+
+        # --- Confusion matrix als CSV speichern ---
+        cm_csv_path = os.path.join(out_dir, "confusion_matrix.csv")
+        df_cm = pd.DataFrame(cm, index=labels_names, columns=labels_names)
+        df_cm.to_csv(cm_csv_path)
+
+        # --- Classification report ---
+        report_dict = metrics.classification_report(
+            y_true,
+            y_pred,
+            target_names=labels_names,
+            zero_division=0,
+            output_dict=True
+        )
+
+        # TXT (wie bisher, nur schöner formatiert)
+        report_str = metrics.classification_report(
+            y_true,
+            y_pred,
+            target_names=labels_names,
+            zero_division=0
+        )
+
+        report_path = os.path.join(out_dir, "classification_report.txt")
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report_str)
+
+        # CSV
+        df_report = pd.DataFrame(report_dict).T
+        report_csv_path = os.path.join(out_dir, "classification_report.csv")
+        df_report.to_csv(report_csv_path)
+
+        print(f"💾 Evaluation saved to: {out_dir}")
 
     def compute_class_weights(self, y_train):
         y_to_integers = np.argmax(y_train,axis=1)

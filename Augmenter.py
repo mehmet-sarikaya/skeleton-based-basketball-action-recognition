@@ -16,9 +16,12 @@ class Augmenter:
         assert window.shape[0] == self.target_len, f"expected T={self.target_len}, got {window.shape[0]}"
 
         out = []
-        out.append(self.switch_left_and_right_window(window))
+        # out.append(self.switch_left_and_right_window(window))
         out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
-        out.append(self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value))
+        out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
+        out.append(self.random_time_shift_pad(window, max_shift=self.max_shift, pad_value=self.pad_value))
+        #out.append(self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value))
+        # out.append(self.stretch_squeeze_interp_then_pad_crop(window, speed_range=self.speed_range, pad_value=self.pad_value))
         return out
 
     # -------------------------
