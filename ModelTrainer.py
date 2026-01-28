@@ -107,7 +107,8 @@ class ModelTrainer:
             write_graph=True,  # Visualizes the model architecture
             update_freq='epoch'  # How often to write logs
         )
-        reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.4), factor=0.5, min_lr=self.lr / 10, verbose=1)
+        reduce_lr = ReduceLROnPlateau(patience=int(self.patience * 0.4), factor=0.5, min_lr=self.lr / 10, verbose=1,
+                                      min_delta=0.01)
         class_weights = self.compute_class_weights(y_t)
 
         # End of Callbacks and Weights ##########################################
@@ -156,7 +157,12 @@ class ModelTrainer:
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
             self.train_base(train_idx, test_idx)
 
-    def train_model_sgkf(self, n_splits):
+    def train_model_sgkf(self, n_splits, balance_data=True):
+        print("Balancing Data? : ", balance_data)
+        self.check_label_distribution()
+        if balance_data:
+            self.balance_data(max_samples_per_class=12000)
+        self.check_label_distribution()
         group_kfold = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
             self.train_base(train_idx, test_idx)

@@ -73,13 +73,13 @@ class BasketballGestureRecognitionApp:
             num_classes=self.num_classes
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
-        # self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
+        self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
         # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
 
-        self.model_trainer.train_model_group_shuffle_split(test_size=0.1, n_splits=1)
+        # self.model_trainer.train_model_group_shuffle_split(test_size=0.1, n_splits=1)
 
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
