@@ -6,7 +6,7 @@ from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
     def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos,
-                 include_conf, batch_size=64, lr=0.0001, patience=20):
+                 include_conf, batch_size=64, lr=0.0001, patience=20, max_epochs=100):
         self.fps = fps
         self.win_len_sec = win_len_sec
         self.stride_len_sec = stride_len_sec
@@ -18,6 +18,7 @@ class BasketballGestureRecognitionApp:
         self.batch_size = batch_size
         self.lr = lr
         self.patience = patience
+        self.max_epochs = max_epochs
 
         self.random_state = 25
 
@@ -70,7 +71,8 @@ class BasketballGestureRecognitionApp:
             batch_size=self.batch_size,
             lr=self.lr,
             patience=self.patience,
-            num_classes=self.num_classes
+            num_classes=self.num_classes,
+            max_epochs=self.max_epochs
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
         self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
@@ -97,14 +99,15 @@ if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
         model_name="gcn",
-        n_splits=2,
+        n_splits=5,
         fps=10,
         win_len_sec=1.6,
         stride_len_sec=1.6,
         num_classes=10,
-        batch_size=32,
-        lr=0.003,
+        batch_size=64,
+        lr=0.001,
         patience=5,
+        max_epochs=100,
         include_conf=False,
         path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()

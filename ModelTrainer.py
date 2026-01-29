@@ -22,9 +22,10 @@ import platform
 
 class ModelTrainer:
     def __init__(self, model_creator: ModelCreator, keypt_processor: KeypointDatasetProcessor, label_id_dic,
-                 batch_size, lr, patience, num_classes, random_state=42):
+                 batch_size, lr, patience, num_classes, max_epochs, random_state=42):
         self.model_creator = model_creator
         self.random_state = random_state
+        self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.lr = lr
         self.patience = patience
@@ -38,7 +39,10 @@ class ModelTrainer:
 
         self.label_id_dic = label_id_dic
 
-    def train_base(self, train_idx, test_idx, merge_classes=False, remove_aug_data_val_test=True):
+        self.fold_reports = []
+        self.session_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    def train_base(self, train_idx, test_idx, merge_classes=False, remove_aug_data_val_test=True, fold_id="0"):
         if merge_classes:
             self.apply_new_grouping()
 
@@ -129,7 +133,7 @@ class ModelTrainer:
 
         model.fit(x_t,
                   y_t,
-                  epochs=1000,
+                  epochs=self.max_epochs,
                   batch_size=self.batch_size,
                   validation_data=(x_val, y_val),
                   class_weight=class_weights,
@@ -137,16 +141,34 @@ class ModelTrainer:
                   callbacks=[es, best_val_loss, tboard, reduce_lr])
 
         model_id = str(uuid.uuid4())[:8]
-        model_name = f"bball_gesture_pose_{model_id}"
-        model_ending = ".keras"
+        fold_id = f"bball_gesture_pose_{model_id}"
 
-        self.evaluate_model(model, x_test, y_test, model_name)
+        self.evaluate_model(model, x_test, y_test, fold_id)
 
+        model_architecture_name = getattr(self.model_creator, "model_name", "unknown_model")
+        model_save_path_curr = os.path.join("evaluations", model_architecture_name, self.session_id, fold_id)
+
+        if model_architecture_name.lower() in ["gcn", "gcn_paper"]:
+            self.save_model(model, model_save_path_curr, fold_id, extension=".weights.h5", only_weights=True)
+        else:
+            self.save_model(model, model_save_path_curr, fold_id, extension=".keras")
+
+    def save_model(self, model, path, fold_id, extension, only_weights=False):
         try:
-            model.save(f"models/{model_name+model_ending}")
-            print(f"saved model at {model_name}")
+            model_save_path = os.path.join(path, fold_id + extension)
+            if only_weights:
+                model_save_path = os.path.join(path, fold_id + ".weights.h5")
+                model.save_weights(model_save_path)
+            else:
+                model.save(model_save_path)
+            print(f"saved model at {model_save_path}")
         except (NotImplementedError, ValueError, TypeError) as e:
-            model.save_weights(f"models/{model_name}.weights.h5")
+            if only_weights:
+                print("Could not save model due to Error")
+                print(e)
+            else:
+                print(f"Could not save as {extension}. Try saving as .weights.h5")
+                self.save_model(model, path, fold_id, ".weights.h5")
 
     def train_model_loso(self):
         logo = LeaveOneGroupOut()
@@ -159,6 +181,9 @@ class ModelTrainer:
             self.train_base(train_idx, test_idx)
 
     def train_model_sgkf(self, n_splits, balance_data=True):
+        session_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        session_name = f"Session_{session_id}"
+
         print("Balancing Data? : ", balance_data)
         self.check_label_distribution()
         if balance_data:
@@ -166,7 +191,10 @@ class ModelTrainer:
         self.check_label_distribution()
         group_kfold = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
-            self.train_base(train_idx, test_idx)
+            fold_id = f"fold_{i + 1}"
+            self.train_base(train_idx, test_idx, fold_id=fold_id)
+
+        self.save_cv_final_results(n_splits=n_splits)
 
     def train_model_classic_kfold(self, n_splits=2):
         kf = KFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
@@ -255,7 +283,6 @@ class ModelTrainer:
         )
         print(report_str)
 
-        # 🔽 NEU: Ergebnisse speichern
         self.save_evaluation_results(
             cm=cm,
             labels_names=labels_names,
@@ -273,7 +300,7 @@ class ModelTrainer:
             save_name
     ):
         model_dir_name = getattr(self.model_creator, "model_name", "unknown_model")
-        out_dir = os.path.join("evaluations", model_dir_name, str(save_name))
+        out_dir = os.path.join("evaluations", model_dir_name, self.session_id, str(save_name))
         os.makedirs(out_dir, exist_ok=True)
 
         # --- Confusion matrix plot speichern ---
@@ -293,7 +320,7 @@ class ModelTrainer:
         # --- Confusion matrix als CSV speichern ---
         cm_csv_path = os.path.join(out_dir, "confusion_matrix.csv")
         df_cm = pd.DataFrame(cm, index=labels_names, columns=labels_names)
-        df_cm.to_csv(cm_csv_path)
+        df_cm.to_csv(cm_csv_path, sep=";")
 
         # --- Classification report ---
         report_dict = metrics.classification_report(
@@ -303,6 +330,8 @@ class ModelTrainer:
             zero_division=0,
             output_dict=True
         )
+
+        self.fold_reports.append(report_dict)
 
         # TXT (wie bisher, nur schöner formatiert)
         report_str = metrics.classification_report(
@@ -319,7 +348,7 @@ class ModelTrainer:
         # CSV
         df_report = pd.DataFrame(report_dict).T
         report_csv_path = os.path.join(out_dir, "classification_report.csv")
-        df_report.to_csv(report_csv_path)
+        df_report.to_csv(report_csv_path, sep=";")
 
         print(f"💾 Evaluation saved to: {out_dir}")
 
@@ -520,6 +549,48 @@ class ModelTrainer:
 
         print(f"\n--- Sklearn Simple Split ({1 - test_size:.0%}/{test_size:.0%}) ---")
         self.train_xgb(train_idx, test_idx)
+
+    def save_cv_final_results(self, n_splits):
+        if not self.fold_reports:
+            return
+
+        model_dir_name = getattr(self.model_creator, "model_name", "unknown_model")
+        # Hauptordner für diese CV-Session
+        out_dir = os.path.join("evaluations", model_dir_name, self.session_id, "final_cv_summary")
+        os.makedirs(out_dir, exist_ok=True)
+
+        # Alle Metriken sammeln (F1, Precision, Recall)
+        metrics_to_average = ['precision', 'recall', 'f1-score']
+        final_summary = {}
+
+        sample_report = self.fold_reports[0]
+        target_keys = [k for k in sample_report.keys() if k != 'accuracy']
+
+        for key in target_keys:
+            final_summary[key] = {}
+            for m in metrics_to_average:
+                scores = [r[key][m] for r in self.fold_reports if key in r]
+                final_summary[key][m] = np.mean(scores)
+                final_summary[key][f"{m}_std"] = np.std(scores)  # Standardabweichung für Thesis!
+
+        # Als DataFrame speichern (CSV)
+        df_final = pd.DataFrame(final_summary).T
+        df_final.to_csv(os.path.join(out_dir, "final_cv_metrics_mean.csv"), sep=";")
+
+        # Schöne Textdatei für schnellen Überblick
+        summary_path = os.path.join(out_dir, "summary_report.txt")
+        with open(summary_path, "w", encoding="utf-8") as f:
+            f.write(f"FINAL CV RESULTS ({n_splits} Folds)\n")
+            f.write("=" * 40 + "\n")
+            f.write(f"Overall Macro F1: {final_summary['macro avg']['f1-score']:.4f}\n")
+            f.write("-" * 40 + "\n")
+            for label in self.label_id_dic.values():
+                if label in final_summary:
+                    f1 = final_summary[label]['f1-score']
+                    std = final_summary[label]['f1-score_std']
+                    f.write(f"{label:15}: {f1:.4f} (+/- {std:.4f})\n")
+
+        print(f"📊 Final CV Summary saved to: {out_dir}")
 
 def to_stgcn_input(x):
     """
