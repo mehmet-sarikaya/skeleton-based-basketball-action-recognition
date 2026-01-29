@@ -1,3 +1,4 @@
+from Graph_Model_Creator import STGCNBlock, GraphConv
 from VideoProcessor import VideoProcessor
 from ultralytics import YOLO
 from collections import deque
@@ -30,7 +31,14 @@ class ModelTester:
         self.current_frame = None
         self.current_annotated_frame = None
 
+        self.model_name = app.model_name
+
         self.allowed_video_formats = [".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".flv", ".m4v"]
+
+        self.STGCN_CUSTOM_OBJECTS = {
+            "STGCNBlock": STGCNBlock,
+            "GraphConv": GraphConv
+        }
 
     def test_model_on_video(self, video_path: str, model_path:str):
         self.keypoints_buffer = deque(maxlen=self.max_len)
@@ -102,7 +110,13 @@ class ModelTester:
 
     def recognize_activity(self, track_id: int):
         if self.basketball_model is None:
-            self.basketball_model = tf.keras.models.load_model(self.model_path)
+            try:
+                self.basketball_model = tf.keras.models.load_model(
+                    self.model_path,
+                    custom_objects=self.STGCN_CUSTOM_OBJECTS
+                )
+            except Exception as e:
+                self.basketball_model = tf.keras.models.load_model(self.model_path)
 
         # pro Person eigener Counter (sonst "shared stride" über alle)
         if not hasattr(self, "buffer_counters"):

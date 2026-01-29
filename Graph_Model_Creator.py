@@ -52,15 +52,53 @@ class STGCNBlock(layers.Layer):
     ST-GCN block: Spatial GCN -> BN/ReLU -> Temporal Conv -> BN -> Residual -> ReLU -> Dropout
     """
     def __init__(self, out_channels, A_hat, temporal_kernel=9, dropout=0.2, **kwargs):
+        # Hier holen wir uns den Namen des Blocks (z.B. "stgcn1")
+        name = kwargs.get("name", "stgcn_block")
         super().__init__(**kwargs)
+
+        # Wir geben jedem Unter-Layer einen Namen, der mit dem Block-Namen startet
+        self.gcn = GraphConv(out_channels, A_hat, name=f"{name}_gcn")
+        self.bn1 = layers.BatchNormalization(name=f"{name}_bn1")
+        self.relu1 = layers.ReLU(name=f"{name}_relu1")
+
+        self.tcn = layers.Conv2D(
+            filters=out_channels,
+            kernel_size=(temporal_kernel, 1),
+            padding="same",
+            use_bias=False,
+            name=f"{name}_tcn"  # Eindeutig!
+        )
+        self.bn2 = layers.BatchNormalization(name=f"{name}_bn2")
+        self.drop = layers.Dropout(dropout, name=f"{name}_drop")
+        self.relu2 = layers.ReLU(name=f"{name}_relu2")
+
         self.out_channels = out_channels
+        self.A_hat = tf.cast(A_hat, tf.float32)  # Wichtig für get_config
         self.temporal_kernel = temporal_kernel
         self.dropout = dropout
 
-        self.gcn = GraphConv(out_channels, A_hat)
+        self.gcn = GraphConv(out_channels, self.A_hat)
         self.bn1 = layers.BatchNormalization()
         self.relu1 = layers.ReLU()
+        # Hier holen wir uns den Namen des Blocks (z.B. "stgcn1")
+        name = kwargs.get("name", "stgcn_block")
+        super().__init__(**kwargs)
 
+        # Wir geben jedem Unter-Layer einen Namen, der mit dem Block-Namen startet
+        self.gcn = GraphConv(out_channels, A_hat, name=f"{name}_gcn")
+        self.bn1 = layers.BatchNormalization(name=f"{name}_bn1")
+        self.relu1 = layers.ReLU(name=f"{name}_relu1")
+
+        self.tcn = layers.Conv2D(
+            filters=out_channels,
+            kernel_size=(temporal_kernel, 1),
+            padding="same",
+            use_bias=False,
+            name=f"{name}_tcn"  # Eindeutig!
+        )
+        self.bn2 = layers.BatchNormalization(name=f"{name}_bn2")
+        self.drop = layers.Dropout(dropout, name=f"{name}_drop")
+        self.relu2 = layers.ReLU(name=f"{name}_relu2")
         self.tcn = layers.Conv2D(
             filters=out_channels,
             kernel_size=(temporal_kernel, 1),
@@ -74,16 +112,30 @@ class STGCNBlock(layers.Layer):
         self.res_conv = None
         self.res_bn = None
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "out_channels": self.out_channels,
+            "A_hat": self.A_hat.numpy().tolist(),
+            "temporal_kernel": self.temporal_kernel,
+            "dropout": self.dropout,
+        })
+        return config
+
     def build(self, input_shape):
         in_channels = int(input_shape[-1])
         if in_channels != self.out_channels:
+            # Wir nutzen self.name (z.B. "stgcn1"), um die Unter-Layer zu branden
             self.res_conv = layers.Conv2D(
                 filters=self.out_channels,
                 kernel_size=(1, 1),
                 padding="same",
                 use_bias=False,
+                name=f"{self.name}_res_conv" # Eindeutiger Name
             )
-            self.res_bn = layers.BatchNormalization()
+            self.res_bn = layers.BatchNormalization(
+                name=f"{self.name}_res_bn"   # Eindeutiger Name
+            )
 
     def call(self, x, training=False):
         y = self.gcn(x, training=training)

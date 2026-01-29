@@ -1,3 +1,5 @@
+import traceback
+
 from sklearn.utils import class_weight
 
 from ModelCreator import ModelCreator
@@ -42,7 +44,7 @@ class ModelTrainer:
         self.fold_reports = []
         self.session_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    def train_base(self, train_idx, test_idx, merge_classes=False, remove_aug_data_val_test=True, fold_id="0"):
+    def train_base(self, train_idx, test_idx, merge_classes=False, remove_aug_data_val_test=True):
         if merge_classes:
             self.apply_new_grouping()
 
@@ -148,10 +150,7 @@ class ModelTrainer:
         model_architecture_name = getattr(self.model_creator, "model_name", "unknown_model")
         model_save_path_curr = os.path.join("evaluations", model_architecture_name, self.session_id, fold_id)
 
-        if model_architecture_name.lower() in ["gcn", "gcn_paper"]:
-            self.save_model(model, model_save_path_curr, fold_id, extension=".weights.h5", only_weights=True)
-        else:
-            self.save_model(model, model_save_path_curr, fold_id, extension=".keras")
+        self.save_model(model, model_save_path_curr, fold_id, extension=".keras")
 
     def save_model(self, model, path, fold_id, extension, only_weights=False):
         try:
@@ -165,10 +164,14 @@ class ModelTrainer:
         except (NotImplementedError, ValueError, TypeError) as e:
             if only_weights:
                 print("Could not save model due to Error")
+                traceback.print_exc()
                 print(e)
             else:
-                print(f"Could not save as {extension}. Try saving as .weights.h5")
-                self.save_model(model, path, fold_id, ".weights.h5")
+                print(f"Could not save as {extension}.")
+                print(e)
+                traceback.print_exc()
+                print("Try saving as .weights.h5")
+                self.save_model(model, path, fold_id, ".weights.h5", only_weights=True)
 
     def train_model_loso(self):
         logo = LeaveOneGroupOut()
@@ -191,8 +194,8 @@ class ModelTrainer:
         self.check_label_distribution()
         group_kfold = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=self.random_state)
         for i, (train_idx, test_idx) in enumerate(group_kfold.split(self.x, self.y, groups=self.video_id)):
-            fold_id = f"fold_{i + 1}"
-            self.train_base(train_idx, test_idx, fold_id=fold_id)
+            print(f"\n------------------------ Fold {i + 1} ----------------------------")
+            self.train_base(train_idx, test_idx)
 
         self.save_cv_final_results(n_splits=n_splits)
 
@@ -320,7 +323,7 @@ class ModelTrainer:
         # --- Confusion matrix als CSV speichern ---
         cm_csv_path = os.path.join(out_dir, "confusion_matrix.csv")
         df_cm = pd.DataFrame(cm, index=labels_names, columns=labels_names)
-        df_cm.to_csv(cm_csv_path, sep=";")
+        df_cm.to_csv(cm_csv_path, sep=";", decimal=",")
 
         # --- Classification report ---
         report_dict = metrics.classification_report(
@@ -348,7 +351,7 @@ class ModelTrainer:
         # CSV
         df_report = pd.DataFrame(report_dict).T
         report_csv_path = os.path.join(out_dir, "classification_report.csv")
-        df_report.to_csv(report_csv_path, sep=";")
+        df_report.to_csv(report_csv_path, sep=";", decimal=",")
 
         print(f"💾 Evaluation saved to: {out_dir}")
 
@@ -575,7 +578,7 @@ class ModelTrainer:
 
         # Als DataFrame speichern (CSV)
         df_final = pd.DataFrame(final_summary).T
-        df_final.to_csv(os.path.join(out_dir, "final_cv_metrics_mean.csv"), sep=";")
+        df_final.to_csv(os.path.join(out_dir, "final_cv_metrics_mean.csv"), sep=";", decimal=",")
 
         # Schöne Textdatei für schnellen Überblick
         summary_path = os.path.join(out_dir, "summary_report.txt")

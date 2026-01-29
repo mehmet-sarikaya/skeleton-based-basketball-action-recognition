@@ -6,7 +6,7 @@ from ModelTester import ModelTester
 
 class BasketballGestureRecognitionApp:
     def __init__(self, model_name, n_splits, fps, win_len_sec, stride_len_sec, num_classes, path_to_videos,
-                 include_conf, batch_size=64, lr=0.0001, patience=20, max_epochs=100):
+                 include_conf, augment_data, batch_size=64, lr=0.0001, patience=20, max_epochs=100):
         self.fps = fps
         self.win_len_sec = win_len_sec
         self.stride_len_sec = stride_len_sec
@@ -43,8 +43,10 @@ class BasketballGestureRecognitionApp:
                              }
         # 10: discard
 
+        self.augment_data = augment_data
         self.keypt_processor = KeypointDatasetProcessor(label_id_dic=self.label_id_dic, fps=self.fps,
                                                         random_state=self.random_state)
+
         self.model_name = model_name
         self.model_creator = ModelCreator(
             model_name=self.model_name,
@@ -61,7 +63,7 @@ class BasketballGestureRecognitionApp:
         self.keypt_dataset_creator.create_keypoints_dataset(self.path_to_videos, filter_videos=False)
 
     def load_dataset_and_train(self):
-        self.keypt_processor.load_dataset(".", include_conf=self.include_conf)
+        self.keypt_processor.load_dataset(".", include_conf=self.include_conf, augment_data=self.augment_data)
         # self.keypt_processor.print_data_after_preparation()
         self.model_trainer = ModelTrainer(
             model_creator=self.model_creator,
@@ -86,12 +88,12 @@ class BasketballGestureRecognitionApp:
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
     def test_model(self, model_path):
-        self.model_tester.test_model_on_camera(model_path=model_path)
+        # self.model_tester.test_model_on_camera(model_path=model_path)
 
         self.model_tester.test_model_on_video(
             # video_path="videos/1080p_Mehmet_demo_video.mov",
-            video_path="videos/1080p_Mehmet_demo_video.mov",
-            # video_path="videos/2v2.mov",
+            # video_path="videos/1080p_Mehmet_demo_video.mov",
+            video_path="videos/1v1.mp4",
             model_path=model_path)
 
 
@@ -104,12 +106,14 @@ if __name__ == "__main__":
         win_len_sec=1.6,
         stride_len_sec=1.6,
         num_classes=10,
-        batch_size=64,
-        lr=0.001,
-        patience=5,
+        batch_size=32,
+        lr=0.003,
+        patience=8,
         max_epochs=100,
         include_conf=False,
+        augment_data=True,
         path_to_videos="space_jam/examples")
     # app.create_dataset_from_videos()
     app.load_dataset_and_train()
-    # app.test_model("models/bball_gesture_pose_7d35d102.keras")
+    # app.test_model("models/bball_gesture_pose_7d35d102.keras") # bisher bestes Modell
+    # app.test_model("evaluations/gcn/20260129-022130/bball_gesture_pose_a0049b48/bball_gesture_pose_a0049b48.keras")
