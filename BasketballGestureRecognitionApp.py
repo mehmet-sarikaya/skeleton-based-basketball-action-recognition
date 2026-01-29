@@ -1,3 +1,5 @@
+import traceback
+
 from KeypointDatasetProcessor import KeypointDatasetProcessor
 from ModelCreator import ModelCreator
 from ModelTrainer import ModelTrainer
@@ -77,30 +79,69 @@ class BasketballGestureRecognitionApp:
             max_epochs=self.max_epochs
         )
         # self.model_trainer.train_model_xgb_gkf(n_splits=self.n_splits)
-        self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
+        # self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_gkf(n_splits=self.n_splits)
         # self.model_trainer.train_model_classic_kfold(n_splits=self.n_splits)
 
         # self.model_trainer.train_model_sklearn_simple(test_size=0.2)
 
-        # self.model_trainer.train_model_group_shuffle_split(test_size=0.1, n_splits=1)
+        self.model_trainer.train_model_group_shuffle_split(test_size=0.1, n_splits=1)
 
         # self.model_trainer.train_model_xgb_simple_sklearn(test_size=0.2)
 
-    def test_model(self, model_path):
-        # self.model_tester.test_model_on_camera(model_path=model_path)
+    def train_all_models_cv(self):
+        # Liste deiner Modell-Architekturen
+        models_to_train = ["gcn_paper", "tcn", "cnn_lstm", "cnn_bilstm"]
+
+        # 1. Daten einmalig laden
+        self.keypt_processor.load_dataset(".", include_conf=self.include_conf, augment_data=self.augment_data)
+
+        for model_name in models_to_train:
+            print("\n" + "#" * 60)
+            print(f"### STARTING CROSS-VALIDATION FOR: {model_name} ###")
+            print("#" * 60 + "\n")
+
+            self.model_creator.model_name = model_name
+
+            self.model_trainer = ModelTrainer(
+                model_creator=self.model_creator,
+                keypt_processor=self.keypt_processor,
+                label_id_dic=self.label_id_dic,
+                random_state=self.random_state,
+                batch_size=self.batch_size,
+                lr=self.lr,
+                patience=self.patience,
+                num_classes=self.num_classes,
+                max_epochs=self.max_epochs
+            )
+
+            try:
+                self.model_trainer.train_model_sgkf(n_splits=self.n_splits)
+                print(f"\nFinished all folds for {model_name}.")
+            except Exception as e:
+                print(f"\nError during CV for {model_name}: {e}")
+                traceback.print_exc()
+
+        print("\n" + "=" * 60)
+        print("COMPLETED CROSS-VALIDATION FOR ALL MODELS.")
+        print("=" * 60)
+
+    def test_model_on_camera(self, model_path, camera_id_or_url=0):
+        self.model_tester.test_model_on_camera(model_path=model_path, camera_id_or_url=camera_id_or_url)
+
+    def test_model_on_video(self, model_path, video_path):
 
         self.model_tester.test_model_on_video(
-            # video_path="videos/1080p_Mehmet_demo_video.mov",
-            # video_path="videos/1080p_Mehmet_demo_video.mov",
-            video_path="videos/1v1.mp4",
-            model_path=model_path)
+            video_path=video_path,
+            model_path=model_path,
+            save_video=False
+        )
 
 
 if __name__ == "__main__":
     #TODO: batch_size und lr hinzufügen und bei test videos oben bei der funktion auch videlink in aufruf
     app = BasketballGestureRecognitionApp(
-        model_name="gcn",
+        model_name="tcn",
         n_splits=5,
         fps=10,
         win_len_sec=1.6,
@@ -113,7 +154,36 @@ if __name__ == "__main__":
         include_conf=False,
         augment_data=True,
         path_to_videos="space_jam/examples")
+
     # app.create_dataset_from_videos()
     app.load_dataset_and_train()
-    # app.test_model("models/bball_gesture_pose_7d35d102.keras") # bisher bestes Modell
-    # app.test_model("evaluations/gcn/20260129-022130/bball_gesture_pose_a0049b48/bball_gesture_pose_a0049b48.keras")
+
+    videos = ["videos/1080p_Mehmet_demo_video.mov", "videos/1v1.mov"]
+
+    video_path = videos[0]
+
+    # Modell Testen auf einem Video
+    # app.test_model_on_video("models/bball_gesture_pose_7d35d102.keras",  # bisher bestes Modell
+    #                         video_path=video_path)
+
+    # Modell Testen über Normal Kamera USB (funktioniert in WSL nicht, lieber über Stream unten)
+    # app.test_model_on_camera(model_path="models/bball_gesture_pose_7d35d102.keras",
+    #                          camera_id_or_url=0)  # bisher bestes Modell
+
+    Camera_stream_url = "http://134.103.169.216:8080/video"
+
+    # Modell Testen über Kamera Stream
+    # app.test_model_on_camera(model_path="models/bball_gesture_pose_7d35d102.keras",
+    #                          camera_id_or_url=Camera_stream_url)  # bisher bestes Modell
+
+    # TCN MODELL testen auf Kamera Stream
+    # tcn_path = "evaluations/tcn/20260129-123200/bball_gesture_pose_3feb2c81/bball_gesture_pose_3feb2c81.keras"
+    # app.test_model_on_camera(tcn_path, camera_id_or_url=Camera_stream_url)
+
+    # Ein GCN Modell das auf fast allen Daten traininiert wurde
+
+    model_path = "evaluations/gcn/20260129-022130/bball_gesture_pose_a0049b48/bball_gesture_pose_a0049b48.keras"
+    # app.test_model_on_video(model_path=model_path, video_path="video_path")
+
+    # Group K Fold auf mehreren Modellen auf einmal
+    # app.train_all_models_cv()

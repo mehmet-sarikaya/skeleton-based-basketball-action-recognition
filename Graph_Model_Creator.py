@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
 
+# übernommen von https://github.com/itskalvik/ST-GCN
+# unofficial implementation of ST-GCN Paper
 
 def normalize_adjacency(A):
     """A_hat = D^{-1/2} (A + I) D^{-1/2}"""

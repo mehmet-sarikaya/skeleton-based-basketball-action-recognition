@@ -104,18 +104,16 @@ class VideoProcessor:
     def process_camera_per_frame_at_constant_fps(
             self,
             frame_callback,
+            camera_id_or_url=0,
             show_frames=False
     ):
         # available_ports, working_ports = self.list_ports()
-        # camera_id = working_ports[0]
-        # camera_id = 0
-        camera_id = "http://134.103.92.227:8080/video"
-        cap = cv.VideoCapture(camera_id)
+        cap = cv.VideoCapture(camera_id_or_url)
 
         if not cap.isOpened():
-            raise RuntimeError(f"Cannot open camera {camera_id}")
+            raise RuntimeError(f"Cannot open camera {camera_id_or_url}")
 
-        print(f"Camera {camera_id} opened. Target FPS: {self.target_fps}")
+        print(f"Camera {camera_id_or_url} opened. Target FPS: {self.target_fps}")
 
         target_interval = 1.0 / self.target_fps
         next_process_time = time.time()

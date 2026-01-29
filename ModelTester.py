@@ -14,7 +14,7 @@ class ModelTester:
         self.label_id_dic = app.label_id_dic
         self.id_to_label = {v: k for k, v in self.label_id_dic.items()}
 
-        self.yolo_model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.yolo_model = YOLO("yolov/yolo26x-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=app.fps)
         self.model_path = None
 
@@ -40,19 +40,30 @@ class ModelTester:
             "GraphConv": GraphConv
         }
 
-    def test_model_on_video(self, video_path: str, model_path:str):
+        self.video_writer = None
+
+    def test_model_on_video(self, video_path: str, model_path:str, save_video=False):
         self.keypoints_buffer = deque(maxlen=self.max_len)
         self.model_path = model_path
+
+        if save_video:
+            # Output-Name generieren
+            output_path = video_path.rsplit('.', 1)[0] + "_annotated.mp4"
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            # VideoProcessor muss uns hier kurz helfen, die FPS und Größe zu wissen
+            # Wir initialisieren den Writer final im ersten Frame-Callback
+            self.output_path = output_path
+            self.fourcc = fourcc
 
         self.video_processor.process_video_per_frame_at_constant_fps(
             video_path, frame_callback=self.collect_frames_and_test_model, show_frames=True)
 
-    def test_model_on_camera(self, model_path:str):
+    def test_model_on_camera(self, model_path:str, camera_id_or_url):
         self.keypoints_buffer = deque(maxlen=self.max_len)
         self.model_path = model_path
 
         self.video_processor.process_camera_per_frame_at_constant_fps(
-            frame_callback=self.collect_frames_and_test_model, show_frames=True)
+            frame_callback=self.collect_frames_and_test_model, camera_id_or_url=camera_id_or_url, show_frames=True)
 
 
     def collect_frames_and_test_model(self, frame):
@@ -64,6 +75,13 @@ class ModelTester:
         if results and len(results) > 0:
             annotated_frame = results[0].plot()
             self.draw_classification(result, annotated_frame)
+
+            if hasattr(self, 'output_path'):
+                if self.video_writer is None:
+                    h, w = annotated_frame.shape[:2]
+                    self.video_writer = cv2.VideoWriter(self.output_path, self.fourcc, self.target_fps, (w, h))
+                self.video_writer.write(annotated_frame)
+
             cv2.imshow("YOLO11 Tracking", annotated_frame)
 
         if result is None or len(result.keypoints.xyn) == 0:

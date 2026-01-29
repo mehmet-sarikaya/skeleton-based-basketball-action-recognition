@@ -163,7 +163,7 @@ class ModelCreator:
         # Sicherheitshalber: Falls eine 4. Dimension (z.B. 1) dabei ist, entfernen
         # Wir wollen (Batch, Time, Points, Channels) -> (None, 16, 12, 3)
         if len(inp.shape) == 5:
-            x = layers.Reshape((16, 12, 3))(inp)
+            x = layers.Reshape((16, 12, 2))(inp)
         else:
             x = inp
 
