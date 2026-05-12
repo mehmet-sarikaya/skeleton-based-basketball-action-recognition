@@ -4,6 +4,7 @@ from keras.layers import Dense, Dropout, BatchNormalization, Conv1D, MaxPooling1
 
 from Graph_Model_Creator import build_stgcn_12kp
 from stgcn_model import STGCNClassifier
+from tchm_model import build_tcmh_skeleton_model
 
 
 class ModelCreator:
@@ -34,6 +35,7 @@ class ModelCreator:
             "bilstm": self.create_short_sequence_model,
             "gcn": self.create_gcn_model,
             "gcn_paper": self.create_gcn_model_from_paper,
+            "tcmh_attention": self.create_tcmh_attention_model,
             "tcn": self.create_tcn_attention_model
         }
 
@@ -428,3 +430,10 @@ class ModelCreator:
             dummy = tf.zeros((1, 2, 16, 12, 1), dtype=tf.float32)  # (N,C,T,V,M)
             _ = model(dummy, training=False)
         return model
+
+    def create_tcmh_attention_model(self):
+        """Loads the TCMH architecture from tcmh_model.py"""
+        return build_tcmh_skeleton_model(
+            input_shape=self.input_shape,
+            num_classes=self.num_classes
+        )

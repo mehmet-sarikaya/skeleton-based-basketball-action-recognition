@@ -5,3 +5,15 @@ yolov/
 Images/
 archive(3)
 space_jam/
+/dataset_all_backup.npz
+/dataset_all_old.npz
+/dataset_all_old_1.npz
+/dataset_all_is_original_flipped_wrong.npz
+/archive(3).zip
+/models/
+/logs/
+/evaluations/
+/evaluation/
+/tests/
+/annotated_video/
+/.idea/

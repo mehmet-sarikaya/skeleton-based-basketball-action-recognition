@@ -14,7 +14,7 @@ class ModelTester:
         self.label_id_dic = app.label_id_dic
         self.id_to_label = {v: k for k, v in self.label_id_dic.items()}
 
-        self.yolo_model = YOLO("yolov/yolo26x-pose.pt")  # Load the YOLO11 Pose Detection model
+        self.yolo_model = YOLO("yolov/yolo26n-pose.pt")  # Load the YOLO11 Pose Detection model
         self.video_processor = VideoProcessor(target_fps=app.fps)
         self.model_path = None
 

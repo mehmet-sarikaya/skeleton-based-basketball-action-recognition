@@ -156,7 +156,7 @@ if __name__ == "__main__":
         path_to_videos="space_jam/examples")
 
     # app.create_dataset_from_videos()
-    app.load_dataset_and_train()
+    # app.load_dataset_and_train()
 
     videos = ["videos/1080p_Mehmet_demo_video.mov", "videos/1v1.mov"]
 
@@ -170,11 +170,11 @@ if __name__ == "__main__":
     # app.test_model_on_camera(model_path="models/bball_gesture_pose_7d35d102.keras",
     #                          camera_id_or_url=0)  # bisher bestes Modell
 
-    Camera_stream_url = "http://134.103.169.216:8080/video"
+    Camera_stream_url = "http://192.168.178.54:8080/video"
 
     # Modell Testen über Kamera Stream
-    # app.test_model_on_camera(model_path="models/bball_gesture_pose_7d35d102.keras",
-    #                          camera_id_or_url=Camera_stream_url)  # bisher bestes Modell
+    app.test_model_on_camera(model_path="models/bball_gesture_pose_7d35d102.keras",
+                              camera_id_or_url=Camera_stream_url)  # bisher bestes Modell
 
     # TCN MODELL testen auf Kamera Stream
     # tcn_path = "evaluations/tcn/20260129-123200/bball_gesture_pose_3feb2c81/bball_gesture_pose_3feb2c81.keras"
