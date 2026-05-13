@@ -14,6 +14,21 @@ Die Erkennung basiert auf der Analyse von **Skelett-Gelenkpunkten (Keypoint Esti
 *   **Validierung:** Methodische Absicherung durch **Stratified Group K-Fold Cross-Validation** für hohe Robustheit gegenüber verschiedenen Spielern und Perspektiven.
 *   **Live-Inference:** Voll funktionsfähige **Multi-Person Echtzeit-Klassifizierung**, bei der YOLO rein als Feature-Extraktor für die Skelett-Daten fungiert.
 
+### 🛠️ Tech Stack
+
+*   **Programmiersprache:** Python
+*   **Deep Learning:** 
+    *   **PyTorch**
+*   **Computer Vision:** 
+    *   **YOLO** (Personen-Erkennung & Pose Estimation)
+    *   **OpenCV** (Video-Processing & Visualisierung)
+*   **Modell-Architektur:** **ST-GCN** (Spatial Temporal Graph Convolutional Network)
+*   **Datenverarbeitung:** 
+    *   **NumPy** & **Pandas** (Matrix-Operationen)
+    *   **Scikit-learn** (Metriken & Stratified K-Fold Validation)
+*   **Visualisierung:** Matplotlib & Seaborn (Performance-Auswertungen)
+
+
 ### Demo
 
 https://github.com/user-attachments/assets/cc20a842-1a9a-49be-83e1-9e0b9b7d6c68
@@ -22,7 +37,7 @@ https://github.com/user-attachments/assets/340b3272-b392-4e91-bfe5-ac41a3ddf91a
 
 <br>
 
-### Ergebnisse der Folds | Stratified Group 5-Fold Validation
+## Ergebnisse der Folds | Stratified Group 5-Fold Validation
 
 Um die Verlässlichkeit des Modells zu garantieren, wurde eine **Stratified Group 5-Fold Validation** implementiert:
 
@@ -32,6 +47,26 @@ Um die Verlässlichkeit des Modells zu garantieren, wurde eine **Stratified Grou
 *   **5 Folds:** Fünf rotierende Durchläufe; der **Durchschnittsscore** dient als finale Performance-Metrik. Ermöglicht eine robuste Bewertung des Modells über mehrere Durchläufe hinweg. Inspiriert von  	
 https://doi.org/10.48550/arXiv.2310.11950 [Too Good To Be True: accuracy overestimation in (re)current practices for Human Activity Recognition]
 *   **Augmentierte Daten:** Diese werden konsequent von den Validierungs- und Testsets entfernt, um reale Bedingungen zu simulieren.
+
+### Durchschnittliche F1-Scores über alle Folds hinweg
+
+Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inklusive der Standardabweichung (+/-):
+
+| Klasse | F1-Score | +/- |
+| :--- | :---: | :---: |
+| **Block** | 45,9% | 2,8% |
+| **Pass** | 35,0% | 3,7% |
+| **Run** | 77,7% | 0,8% |
+| **Dribble** | 53,7% | 1,7% |
+| **Shoot** | 49,2% | 3,1% |
+| **Ball in hand** | 46,5% | 1,4% |
+| **Defense** | 61,9% | 0,9% |
+| **Pick** | 26,6% | 1,0% |
+| **No Action** | 70,1% | 0,7% |
+| **Walk** | 72,4% | 0,8% |
+| | | |
+| **Macro Avg** | 53,9% | 0,7% |
+| **Weighted Avg** | 68,1% | 0,3% |
 
 #### Ergebnisse Fold 1
 <img src="assets/cms_folds/Bild1.png" width="500" alt="Confusion Matrix Fold 2">
@@ -65,26 +100,6 @@ https://doi.org/10.48550/arXiv.2310.11950 [Too Good To Be True: accuracy overest
 #### Ergebnisse Fold 5
 <img src="assets/cms_folds/Bild6.png" width="500" alt="Confusion Matrix Fold 5">
 
-### Durchschnittliche F1-Scores über alle Folds hinweg
-
-Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inklusive der Standardabweichung (+/-):
-
-| Klasse | F1-Score | +/- |
-| :--- | :---: | :---: |
-| **Block** | 45,9% | 2,8% |
-| **Pass** | 35,0% | 3,7% |
-| **Run** | 77,7% | 0,8% |
-| **Dribble** | 53,7% | 1,7% |
-| **Shoot** | 49,2% | 3,1% |
-| **Ball in hand** | 46,5% | 1,4% |
-| **Defense** | 61,9% | 0,9% |
-| **Pick** | 26,6% | 1,0% |
-| **No Action** | 70,1% | 0,7% |
-| **Walk** | 72,4% | 0,8% |
-| | | |
-| **Macro Avg** | 53,9% | 0,7% |
-| **Weighted Avg** | 68,1% | 0,3% |
-
 <br>
 
 ## Verwendetes Modell: ST-GCN
@@ -100,6 +115,8 @@ https://doi.org/10.48550/arXiv.1801.07455
 Dieses Modell ist speziell darauf ausgelegt, die natürlichen Verbindungen des menschlichen Körpers als Graphen zu verstehen und Bewegungen über die Zeit zu analysieren.
 
 <img src="assets/pics/stgcn.png" width="500" alt="Stgcn Model">
+
+Abbildung von https://doi.org/10.48550/arXiv.1801.07455 
 
 ### Architektur-Komponenten
 
@@ -129,14 +146,14 @@ Um die Leistungsfähigkeit des **ST-GCN** einzuordnen, wurde es mit verschiedene
 *   **Stabilität:** Mit einem **Weighted Avg von 68,10%** übertrifft das ST-GCN die zweitbeste Architektur (Residual-TCN) deutlich und zeigt eine robustere Generalisierung über alle 10 Klassen hinweg.
 *   **Effizienz der Graphen-Struktur:** Der Vergleich zeigt deutlich, dass die explizite Modellierung der Skelett-Struktur (Graph) gegenüber rein sequentiellen Modellen (LSTM/TCN) einen signifikanten Vorteil bei der Erkennung menschlicher Posen bietet.
 
-### 📚 Verwendeter Datensatz - Space Jam
+## 📚 Verwendeter Datensatz - Space Jam
 
 Das Projekt nutzt den **Space Jam Datensatz**, welcher in der folgenden Forschungsarbeit von Simone Francia eingeführt wurde:
 
 > Francia, S.: *Classificazione di Azioni Cestistiche mediante Tecniche di Deep Learning*. Ph.D. thesis (2018).  
 > [**Volltext auf ResearchGate lesen**](https://www.researchgate.net/profile/Simone-Francia/publication/330534530_Classificazione_di_Azioni_Cestistiche_mediante_Tecniche_di_Deep_Learning/links/5c46d513a6fdccd6b5bf2a27/Classificazione-di-Azioni-Cestistiche-mediante-Tecniche-di-Deep-Learning.pdf)
 
-#### Überblick der Gesten / Labels die im Datensatz enthalten sind
+### Überblick der Gesten / Labels die im Datensatz enthalten sind
 
 | ID | Aktion | Visualisierung                         | Merkmale und Beschreibung |
 | :--- | :--- |:---------------------------------------| :--- |
@@ -153,7 +170,7 @@ Das Projekt nutzt den **Space Jam Datensatz**, welcher in der folgenden Forschun
 
 <br>
 
-##### Infos über Verteilung der Klassen
+### Infos über Verteilung der Klassen
 
 | ID | Label Name | Anzahl Samples | Dauer (H:MM) | Anteil |
 | :--- | :--- | :--- | :--- | :--- |
@@ -172,7 +189,7 @@ Das Projekt nutzt den **Space Jam Datensatz**, welcher in der folgenden Forschun
 
 <br>
 
-#### Modell für die Pose Estimation und Bounding Box Detection
+## Modell für die Pose Estimation und Bounding Box Detection
 <img src="assets/pics/ultralytics.webp" width="400" alt="Bounding Box normalization">
 
 https://docs.ultralytics.com/tasks/pose
@@ -188,10 +205,10 @@ Für die Extraktion der Skelett-Daten nutzt das System folgende Konfiguration:
 
 <br>
 
-#### Keypoint Dataset Erstellen
+## Keypoint Dataset Erstellen
 <img src="assets/pics/Pipeline_for_dataset.png" width="500" alt="Pipeline for Dataset goes through Open Cv VideoPRocessor and then per Frame Extracting Keypoints">
 
-#### Normalisierung
+## Normalisierung
 Die Standard-Normalisierung von YOLO stößt bei variablen Videodaten an ihre Grenzen:
 
 *   **YOLO liefert X,Y normalisierte Koordinaten:**
@@ -207,7 +224,7 @@ Die Standard-Normalisierung von YOLO stößt bei variablen Videodaten an ihre Gr
 
 <br>
 
-### Daten-Augmentierung (Skelett-Ebene)
+## Daten-Augmentierung (Skelett-Ebene)
 
 Um die Robustheit des Modells gegenüber verschiedenen Kameraperspektiven und Zeitabläufen zu erhöhen, werden folgende Augmentierungen auf die Keypoint-Sequenzen angewendet:
 
