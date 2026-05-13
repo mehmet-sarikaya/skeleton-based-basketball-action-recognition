@@ -1,10 +1,16 @@
 # Basketball Video Gesture Recognition
 
-**Dieses Projekt ermöglicht die automatisierte Erkennung von 10 verschiedenen Basketball-Gesten direkt aus Videos – darunter Aktionen wie Werfen (Shoot), Blocken (Block), Passen (Pass) und mehr.**
+**Dieses Projekt ermöglicht die automatisierte Erkennung von 10 verschiedenen Basketball-Gesten direkt aus Videos, darunter Aktionen wie Werfen (Shoot), Blocken (Block), Passen (Pass) und mehr.**
 
 Die Erkennung basiert auf der Analyse von **Skelett-Gelenkpunkten (Keypoint Estimation)** anstatt direkt auf dem Bildmaterial. Dadurch ist das System in der Lage, menschliche Bewegungsabläufe präzise zu erfassen und hocheffizient in Echtzeit zu klassifizieren ohne von irrelevanten Mustern beeinflusst zu werden.
 
 ---
+
+### Demo
+
+https://github.com/user-attachments/assets/cc20a842-1a9a-49be-83e1-9e0b9b7d6c68
+
+https://github.com/user-attachments/assets/340b3272-b392-4e91-bfe5-ac41a3ddf91a
 
 ### 🛠 Projekt-Highlights
 
@@ -28,12 +34,17 @@ Die Erkennung basiert auf der Analyse von **Skelett-Gelenkpunkten (Keypoint Esti
     *   **Scikit-learn** (Metriken & Stratified K-Fold Validation)
 *   **Visualisierung:** Matplotlib & Seaborn (Performance-Auswertungen)
 
+## How to Run
 
-### Demo
+Stelle sicher, dass du Python 3.8+ installiert hast. Klone das Repository und installiere die Abhängigkeiten:
 
-https://github.com/user-attachments/assets/cc20a842-1a9a-49be-83e1-9e0b9b7d6c68
+<code> git clone repo-link </code>
+<br>
+<code> cd projekt-ordner </code>
+<br>
+<code> pip install -r requirements.txt </code>
 
-https://github.com/user-attachments/assets/340b3272-b392-4e91-bfe5-ac41a3ddf91a
+Beim Starten der Datei <code> BasketballGestureRecognitionApp.py</code> wird ein Menü aufgezeigt in dem man je nach Wunsch Training oder Live Inference wählen kann.
 
 <br>
 
@@ -44,29 +55,9 @@ Um die Verlässlichkeit des Modells zu garantieren, wurde eine **Stratified Grou
 *   **Ziel:** Vermeidung von **Data Leakage** und "Glücks-Splits".
 *   **Video-ID Grouping:** Alle Frames und Augmentierungen eines Videos bleiben strikt in einem Block. Kein Video ist gleichzeitig im Training und Validierung/Test vorhanden. Dies verhindert, dass das Modell Frames erkennt, die es bereits aus dem Training kennt.
 *   **Stratifizierung:** Sicherstellung eines stabilen Klassenverhältnisses in jedem Fold.
-*   **5 Folds:** Fünf rotierende Durchläufe; der **Durchschnittsscore** dient als finale Performance-Metrik. Ermöglicht eine robuste Bewertung des Modells über mehrere Durchläufe hinweg. Inspiriert von  	
+*   **5 Folds:** Fünf rotierende Durchläufe; der **Durchschnittsscore** dient als finale Performance-Metrik. Ermöglicht eine robuste Bewertung des Modells über mehrere Durchläufe hinweg. Die Verwendung von Group-k-Fold inspiriert von  	
 https://doi.org/10.48550/arXiv.2310.11950 [Too Good To Be True: accuracy overestimation in (re)current practices for Human Activity Recognition]
 *   **Augmentierte Daten:** Diese werden konsequent von den Validierungs- und Testsets entfernt, um reale Bedingungen zu simulieren.
-
-### Durchschnittliche F1-Scores über alle Folds hinweg
-
-Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inklusive der Standardabweichung (+/-):
-
-| Klasse | F1-Score | +/- |
-| :--- | :---: | :---: |
-| **Block** | 45,9% | 2,8% |
-| **Pass** | 35,0% | 3,7% |
-| **Run** | 77,7% | 0,8% |
-| **Dribble** | 53,7% | 1,7% |
-| **Shoot** | 49,2% | 3,1% |
-| **Ball in hand** | 46,5% | 1,4% |
-| **Defense** | 61,9% | 0,9% |
-| **Pick** | 26,6% | 1,0% |
-| **No Action** | 70,1% | 0,7% |
-| **Walk** | 72,4% | 0,8% |
-| | | |
-| **Macro Avg** | 53,9% | 0,7% |
-| **Weighted Avg** | 68,1% | 0,3% |
 
 #### Ergebnisse Fold 1
 <img src="assets/cms_folds/Bild1.png" width="600" alt="Confusion Matrix Fold 2">
@@ -99,6 +90,26 @@ Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inkl
 
 #### Ergebnisse Fold 5
 <img src="assets/cms_folds/Bild6.png" width="600" alt="Confusion Matrix Fold 5">
+
+### Durchschnittliche F1-Scores über alle Folds hinweg
+
+Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inklusive der Standardabweichung (+/-):
+
+| Klasse | F1-Score | +/- |
+| :--- | :---: | :---: |
+| **Block** | 45,9% | 2,8% |
+| **Pass** | 35,0% | 3,7% |
+| **Run** | 77,7% | 0,8% |
+| **Dribble** | 53,7% | 1,7% |
+| **Shoot** | 49,2% | 3,1% |
+| **Ball in hand** | 46,5% | 1,4% |
+| **Defense** | 61,9% | 0,9% |
+| **Pick** | 26,6% | 1,0% |
+| **No Action** | 70,1% | 0,7% |
+| **Walk** | 72,4% | 0,8% |
+| | | |
+| **Macro Avg** | 53,9% | 0,7% |
+| **Weighted Avg** | 68,1% | 0,3% |
 
 <br>
 
