@@ -8,9 +8,9 @@ Die Erkennung basiert auf der Analyse von **Skelett-Gelenkpunkten (Keypoint Esti
 
 ### Demo
 
-https://github.com/user-attachments/assets/cc20a842-1a9a-49be-83e1-9e0b9b7d6c68
+https://github.com/user-attachments/assets/dd4b3656-fdec-4921-b0de-2cd5d782f4c1
 
-https://github.com/user-attachments/assets/340b3272-b392-4e91-bfe5-ac41a3ddf91a
+https://github.com/user-attachments/assets/dd795622-c9b5-4bef-9b53-655b942fe340
 
 ### 🛠 Projekt-Highlights
 
