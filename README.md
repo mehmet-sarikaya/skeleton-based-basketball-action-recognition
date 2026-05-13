@@ -69,7 +69,7 @@ Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inkl
 | **Weighted Avg** | 68,1% | 0,3% |
 
 #### Ergebnisse Fold 1
-<img src="assets/cms_folds/Bild1.png" width="500" alt="Confusion Matrix Fold 2">
+<img src="assets/cms_folds/Bild1.png" width="700" alt="Confusion Matrix Fold 2">
 
 | Klasse | Precision | Recall | F1-Score | Support |
 | :--- | :---: | :---: | :---: | :---: |
@@ -89,16 +89,16 @@ Die folgende Tabelle zeigt die stabilen Ergebnisse über alle Folds hinweg, inkl
 | **Weighted Avg** | 70,5% | 67,8% | 68,6% | 6512 |
 
 #### Ergebnisse Fold 2
-<img src="assets/cms_folds/Bild3.png" width="500" alt="Confusion Matrix Fold 3">
+<img src="assets/cms_folds/Bild3.png" width="700" alt="Confusion Matrix Fold 3">
 
 #### Ergebnisse Fold 3
-<img src="assets/cms_folds/Bild4.png" width="500" alt="Confusion Matrix Fold 4">
+<img src="assets/cms_folds/Bild4.png" width="700" alt="Confusion Matrix Fold 4">
 
 #### Ergebnisse Fold 4
-<img src="assets/cms_folds/Bild5.png" width="500" alt="Confusion Matrix Fold 5">
+<img src="assets/cms_folds/Bild5.png" width="700" alt="Confusion Matrix Fold 5">
 
 #### Ergebnisse Fold 5
-<img src="assets/cms_folds/Bild6.png" width="500" alt="Confusion Matrix Fold 5">
+<img src="assets/cms_folds/Bild6.png" width="700" alt="Confusion Matrix Fold 5">
 
 <br>
 
