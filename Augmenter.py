@@ -81,7 +81,7 @@ class Augmenter:
         return np.concatenate([seq, pad], axis=0)
 
     # -------------------------
-    # 3) Left/Right Switch (wie gehabt)
+    # 3) Left/Right Switch
     # -------------------------
     def switch_left_and_right_window(self, window):
         window = np.asarray(window)

@@ -31,7 +31,7 @@ ALLOWED_EXTS = [
 ]
 
 # ============================================================
-# LOAD ANNOTATION DICT (GENAU WIE BEI DIR)
+# LOAD ANNOTATION DICT
 # ============================================================
 def load_annotation_dict(path: Path):
     dict_path = path / "annotation_dict.json"

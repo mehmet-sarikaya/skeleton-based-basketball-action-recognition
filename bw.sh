@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=gpu_a100_il       # Wähle die Partition mit GPUs
-#SBATCH --gres=gpu:1            # Fordere 2 GPUs an
-#SBATCH --time=48:00:00         # Setze die maximale Laufzeit (hier 2 Stunden)
-#SBATCH --mem=32G              # Setze den benötigten Speicher
-#SBATCH --cpus-per-task=8      # Anzahl CPUs pro Task
-#SBATCH --job-name=space_jam          # Setze den Job-Namen
-#SBATCH --output=job_outputs/%x_%j.out     # Datei für die Ausgabe (mit Job-ID)
+#SBATCH --partition=gpu_a100_il         # Wähle die Partition mit GPUs
+#SBATCH --gres=gpu:1                    # Fordere 2 GPUs an
+#SBATCH --time=48:00:00                 # Setze die maximale Laufzeit (hier 2 Stunden)
+#SBATCH --mem=32G                       # Setze den benötigten Speicher
+#SBATCH --cpus-per-task=8               # Anzahl CPUs pro Task
+#SBATCH --job-name=space_jam            # Setze den Job-Namen
+#SBATCH --output=job_outputs/%x_%j.out  # Datei für die Ausgabe (mit Job-ID)
 
 export MODULEPATH=/opt/bwhpc/common/modulefiles/Core:$MODULEPATH
 

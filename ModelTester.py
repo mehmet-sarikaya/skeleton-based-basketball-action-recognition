@@ -50,7 +50,7 @@ class ModelTester:
             # Output-Name generieren
             output_path = video_path.rsplit('.', 1)[0] + "_annotated.mp4"
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            # VideoProcessor muss uns hier kurz helfen, die FPS und Größe zu wissen
+            # VideoProcessor muss hier kurz helfen, die FPS und Größe zu wissen
             # Wir initialisieren den Writer final im ersten Frame-Callback
             self.output_path = output_path
             self.fourcc = fourcc
@@ -153,7 +153,7 @@ class ModelTester:
 
             probs = self.basketball_model.predict(x, verbose=0)
 
-            # wenn du pro Person label/conf speichern willst:
+            # wenn man pro Person label/conf speichern will:
             if not hasattr(self, "current_class_id_by_id"):
                 self.current_class_id_by_id = {}
                 self.pred_conf_by_id = {}
