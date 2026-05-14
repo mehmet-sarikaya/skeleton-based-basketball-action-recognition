@@ -152,7 +152,7 @@ Abbildung von https://doi.org/10.48550/arXiv.1801.07455
 ### Vergleich des ST-GCN Modells mit anderen Baseline Modellen
 <img src="assets/pics/comparison.png" width="1000" alt="Comparison with baseline">
 
-Um die Leistungsfähigkeit des **ST-GCN** einzuordnen, wurde es mit verschiedenen Standard-Architekturen der Video-Klassifizierung verglichen (CNN-BiLSTM, CNN-LSTM und Residual-TCN mit Attention):
+Um die Leistungsfähigkeit des **ST-GCN** einzuordnen, habe ich es mit verschiedenen Standard-Architekturen der Video-Klassifizierung verglichen (CNN-BiLSTM, CNN-LSTM und Residual-TCN mit Attention):
 
 *   **Überlegene Performance:** Das ST-GCN Modell erzielt in fast allen Kategorien den höchsten F1-Score, insbesondere bei komplexen Bewegungsabläufen wie **Dribble** (53,70%) und **Pass** (35,00%).
 *   **Stabilität:** Mit einem **Weighted Avg von 68,10%** übertrifft das ST-GCN die zweitbeste Architektur (Residual-TCN) deutlich und zeigt eine robustere Generalisierung über alle 10 Klassen hinweg.
