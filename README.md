@@ -174,7 +174,7 @@ Das Projekt nutzt den **Space Jam Datensatz**, welcher in der folgenden Forschun
 | **2** | **Run** | ![Run](assets/gifs/run.gif)                   | Der Spieler rennt, ohne eine andere Aktion auszuführen. Eingeschlossen sind schnelles Gehen und Sprünge. |
 | **3** | **Dribble** | ![Dribble](assets/gifs/dribble.gif)           | Der Spieler prellt den Ball mindestens einmal auf den Boden und nimmt ihn wieder auf. |
 | **4** | **Shoot** | ![Shoot](assets/gifs/shoot.gif)               | Der Spieler wirft mit dem Ziel, den Ball in den Korb zu befördern. |
-| **5** | **Ball in Hand** | ![Ball in Hand](assets/gifs/ball in hand.gif) | Halten des Balls ohne Wurf/Pass. Kleine Fußbewegungen (Sternschritt) sind erlaubt. |
+| **5** | **Ball in Hand** | ![Ball in Hand](assets/gifs/ball%20in%20hand.gif) | Halten des Balls ohne Wurf/Pass. Kleine Fußbewegungen (Sternschritt) sind erlaubt. |
 | **6** | **Defense** | ![Defense](assets/gifs/defense.gif)           | Tiefgebeugte Verteidigungsposition (Manndeckung), sowohl in Bewegung als auch im Stand. |
 | **7** | **Pick** | ![Pick](assets/gifs/pick.gif)                 | Der Spieler ohne Ball stellt einen Block für einen Mitspieler oder provoziert ein Offensivfoul. |
 | **8** | **No Action** | ![No Action](assets/gifs/no_action.gif)       | Keine spezifische basketballrelevante Aktion im Sinne dieser Untersuchung. |
